@@ -1,0 +1,76 @@
+{
+  "generating_script": "metadata/make_splits.py",
+  "git_commit": "5f97a52b03bfa495b3794db6f3d5af2c70b3245d-dirty",
+  "timestamp_utc": "2026-08-16T16:29:35.128942+00:00",
+  "config": {
+    "seed": 42,
+    "labels": {
+      "background": 0,
+      "wmh": 1,
+      "other": 2
+    },
+    "working_space": "flair",
+    "periventricular": {
+      "threshold_mm": 10.0,
+      "sensitivity_thresholds_mm": [
+        5.0,
+        10.0,
+        15.0
+      ],
+      "distance_metric": "euclidean_mm"
+    },
+    "largest_lesion_diameter": {
+      "definition": "equivalent_sphere_diameter"
+    },
+    "spatial_distribution": {
+      "primary_reference_frame": "hemisphere",
+      "stretch_reference_frame": "lobe"
+    },
+    "dicom": {
+      "required": false,
+      "decision": "Instructor confirmed NIfTI-only is acceptable (2026-08-16)."
+    },
+    "ssim_role": "preprocessing_quality",
+    "voxel_spacing_policy": "stored_never_inferred",
+    "splits": {
+      "test_set": "official_110",
+      "train_val_subjects": 60,
+      "train_fraction": 0.8,
+      "val_fraction": 0.2,
+      "stratify_by": "site",
+      "sites": [
+        "Utrecht",
+        "Singapore",
+        "Amsterdam"
+      ]
+    },
+    "ventricle_segmentation": {
+      "method": "flair_intensity_threshold"
+    },
+    "severity_classification": {
+      "candidate_routes": [
+        "tertiles",
+        "fazekas_anchored",
+        "regression_then_threshold"
+      ],
+      "recommended_route": "regression_then_threshold",
+      "min_subjects_per_class": 8
+    },
+    "evaluation": {
+      "vendored_script": "checks/evaluation.py",
+      "source": "https://github.com/hjkuijf/wmhchallenge (raw, branch master)",
+      "metrics": [
+        "dice",
+        "hausdorff95_mm",
+        "avd_percent",
+        "lesion_recall",
+        "lesion_f1"
+      ],
+      "label2_handling": "Ground-truth image is thresholded to WMH==1 only. Label-2 voxels are used to build a mask that is applied to the RESULT (prediction) image only, zeroing out any predicted-positive voxels that fall in a label-2 region before scoring. Net effect: label-2 regions are \"don't care\" \u2014 a prediction there is neither a true positive nor a false positive.\n"
+    }
+  },
+  "extra": {
+    "n_subjects": 48,
+    "seed": 42
+  }
+}

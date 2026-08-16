@@ -1,0 +1,124 @@
+# checks-and-prototyping-week1/metadata/dataset.yaml
+#
+# Single source of truth for every project parameter that would otherwise be a
+# magic number in code (CLAUDE.md Section 5.5). config.py loads this file and
+# exposes its values as Python constants; nothing else should hardcode these
+# numbers. Each entry below records not just the value but the decision
+# rationale, so this file doubles as the record required by CLAUDE.md Section 10.
+
+seed: 42  # single project-wide seed; never re-rolled (CLAUDE.md Section 5.4 / 5.5)
+
+labels:
+  background: 0
+  wmh: 1        # WMH mask = (raw_mask == 1), never (raw_mask > 0)
+  other: 2      # "other pathology" — excluded from WMH burden, treated as don't-care
+                # at evaluation time (see checks/evaluation.py: label-2 voxels are
+                # masked out of the *result* image before scoring, so a prediction
+                # landing in a label-2 region is neither rewarded nor penalised).
+                # CLAUDE.md Decision #1 / Section 11.2.
+
+working_space: flair
+# Nothing is resampled into T1 space. Reference masks ship in FLAIR space; FLAIR
+# is the coordinate system for the whole project. CLAUDE.md Decision #2.
+
+periventricular:
+  threshold_mm: 10.0        # DeCarli et al. 2005; also used by UK Biobank and FSL BIANCA
+  sensitivity_thresholds_mm: [5.0, 10.0, 15.0]
+  # Run the periventricular/deep split at all three and report sensitivity in W4,
+  # converting a hard-coded constant into a defensible analysis (Section 11.1).
+  distance_metric: euclidean_mm  # scipy.ndimage.distance_transform_edt with
+                                  # sampling=voxel_spacing — NEVER voxel counts.
+                                  # CLAUDE.md flags this as the single most likely
+                                  # silent bug in the project (anisotropic FLAIR).
+
+largest_lesion_diameter:
+  definition: equivalent_sphere_diameter
+  # Decision #8. Two candidate definitions: max Feret diameter (true geometric
+  # extent, but expensive and ambiguous to compute robustly on irregular 3D
+  # blobs at scale) vs. equivalent-sphere diameter (deterministic, cheap,
+  # derived directly from the voxel-count volume already being computed:
+  # d = (6V / pi)^(1/3)). We lock equivalent-sphere diameter as the primary,
+  # reported metric for W4 because it is unambiguous and reproducible; max
+  # Feret is noted as a stretch/cross-check metric if W4 has slack. Whichever
+  # is used, CLAUDE.md requires stating the definition once and applying it
+  # consistently — this is that statement.
+
+spatial_distribution:
+  primary_reference_frame: hemisphere
+  stretch_reference_frame: lobe
+  # Decision #9 / Section 11.7. R9 asks for "lobes or hemispheres" — the
+  # disjunction is the escape hatch. Hemisphere assignment is near-free via
+  # the affine (world x-coordinate vs. brain-centroid midline, CLAUDE.md
+  # Section 11.3 Layer 2) and is the guaranteed W4 deliverable. Lobe-level
+  # distribution needs an MNI lobar atlas registered into each subject's
+  # FLAIR space — real registration infrastructure — and is treated as a
+  # stretch goal only if W4 has slack.
+
+dicom:
+  required: false
+  decision: "Instructor confirmed NIfTI-only is acceptable (2026-08-16)."
+  # Resolves Decision #4 / Section 11.5 Option A. The Week 2 schedule line
+  # ("DICOM extraction...") is boilerplate shared across all twelve project
+  # options in the course; the WMH problem statement itself never mentions
+  # DICOM. Source data ships as NIfTI; conversion was performed upstream by
+  # the challenge organisers and cannot be repeated (source DICOMs were never
+  # released). No DICOM demonstration pipeline is built.
+
+ssim_role: preprocessing_quality
+# Decision #5. SSIM is a perceptual image-similarity metric, near-meaningless
+# on a binary segmentation mask. Used in W2 to compare denoised vs. original
+# FLAIR; Dice / Jaccard / HD95 are used for segmentation quality in W7.
+
+voxel_spacing_policy: stored_never_inferred
+# Decision #6. voxel_spacing_x/y/z (mm) is read from the NIfTI header/affine
+# for every subject and stored in subject_index.csv. All volumes are computed
+# in mm^3 via stored spacing, never assumed isotropic.
+
+splits:
+  # Decision #7 + Section 11.6. The 110 official test subjects were confirmed
+  # in Week 1 to ship real, non-empty wmh.nii.gz masks (contradicting the
+  # stale statement in data/raw/readme.pdf that masks are "only available for
+  # training data" — that line is stale relative to the 2022 DataverseNL
+  # public release). This means the STRONG evaluation path applies: train/val
+  # on the 60 official training subjects, evaluate directly against the
+  # official 110 test subjects and the published leaderboard in W7. The 110
+  # are therefore the sealed test set — not opened again until W7 — and only
+  # the 60 training subjects are split into train/val here.
+  test_set: official_110
+  train_val_subjects: 60
+  train_fraction: 0.8   # 16 of 20 per site
+  val_fraction: 0.2     #  4 of 20 per site
+  stratify_by: site
+  sites: [Utrecht, Singapore, Amsterdam]
+
+ventricle_segmentation:
+  method: flair_intensity_threshold
+  # Decision #3 / Section 11.1. Preference order was SynthSeg > FSL FAST >
+  # FLAIR-threshold trick. Neither FreeSurfer/SynthSeg nor FSL is installed
+  # in this environment, and installing either is a multi-GB, non-trivial
+  # setup step disproportionate to a throwaway W1.9 feasibility prototype
+  # (Section 12: W1.9 exists purely to measure runtime and confirm
+  # feasibility, not to produce results). The FLAIR-threshold fallback needs
+  # no T1, no registration, and no external tool — fully explainable in the
+  # report — so it was used for the W1.9 prototype. SynthSeg remains the
+  # PRIMARY candidate for the real W4 ventricle segmentation and should be
+  # re-evaluated then if FreeSurfer/SynthSeg becomes available.
+
+severity_classification:
+  # Section 11.4. Not implemented in W1 (out of scope, Section 12) — recorded
+  # here so the W1.10 distribution check has a documented target to assess
+  # feasibility against.
+  candidate_routes: [tertiles, fazekas_anchored, regression_then_threshold]
+  recommended_route: regression_then_threshold
+  min_subjects_per_class: 8  # below this, collapse to two classes (low/high)
+
+evaluation:
+  vendored_script: checks/evaluation.py
+  source: https://github.com/hjkuijf/wmhchallenge (raw, branch master)
+  metrics: [dice, hausdorff95_mm, avd_percent, lesion_recall, lesion_f1]
+  label2_handling: >
+    Ground-truth image is thresholded to WMH==1 only. Label-2 voxels are used
+    to build a mask that is applied to the RESULT (prediction) image only,
+    zeroing out any predicted-positive voxels that fall in a label-2 region
+    before scoring. Net effect: label-2 regions are "don't care" — a
+    prediction there is neither a true positive nor a false positive.
