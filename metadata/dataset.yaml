@@ -1,4 +1,4 @@
-# checks-and-prototyping-week1/metadata/dataset.yaml
+# metadata/dataset.yaml
 #
 # Single source of truth for every project parameter that would otherwise be a
 # magic number in code (CLAUDE.md Section 5.5). config.py loads this file and

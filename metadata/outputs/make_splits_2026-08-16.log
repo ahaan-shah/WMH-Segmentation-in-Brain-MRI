@@ -14,3 +14,11 @@
 2026-08-16 21:59:35,133 INFO Wrote /home/ahaan/college/year-4/Medical Imaging MRI WMH project/metadata/outputs/split_val.txt (12 subjects)
 2026-08-16 21:59:35,137 INFO Wrote /home/ahaan/college/year-4/Medical Imaging MRI WMH project/metadata/outputs/split_test.txt (110 subjects)
 2026-08-16 21:59:35,137 INFO train=48 val=12 test=110 (SEED=42)
+2026-08-16 22:21:13,025 INFO 60 training subjects (split into train/val), 110 official test subjects (sealed)
+2026-08-16 22:21:13,025 INFO site=Amsterdam: 20 total -> 16 train, 4 val
+2026-08-16 22:21:13,025 INFO site=Singapore: 20 total -> 16 train, 4 val
+2026-08-16 22:21:13,025 INFO site=Utrecht: 20 total -> 16 train, 4 val
+2026-08-16 22:21:13,030 INFO Wrote /home/ahaan/college/year-4/Medical Imaging MRI WMH project/metadata/outputs/split_train.txt (48 subjects)
+2026-08-16 22:21:13,034 INFO Wrote /home/ahaan/college/year-4/Medical Imaging MRI WMH project/metadata/outputs/split_val.txt (12 subjects)
+2026-08-16 22:21:13,037 INFO Wrote /home/ahaan/college/year-4/Medical Imaging MRI WMH project/metadata/outputs/split_test.txt (110 subjects)
+2026-08-16 22:21:13,037 INFO train=48 val=12 test=110 (SEED=42)

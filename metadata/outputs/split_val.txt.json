@@ -1,7 +1,7 @@
 {
   "generating_script": "metadata/make_splits.py",
-  "git_commit": "5f97a52b03bfa495b3794db6f3d5af2c70b3245d-dirty",
-  "timestamp_utc": "2026-08-16T16:29:35.133220+00:00",
+  "git_commit": "5aeafc8009bb86b5c8823ac52fc5b05c4d3f2a4a-dirty",
+  "timestamp_utc": "2026-08-16T16:51:13.034148+00:00",
   "config": {
     "seed": 42,
     "labels": {
