@@ -5,3 +5,12 @@ data/
 code/.venv/
 .ipynb_checkpoints/
 .vscode/
+prototyping-and-refs-week1/
+__pycache__/
+.pytest_cache/
+
+# Within checks/, only the parts later weeks actually depend on are tracked
+# (the phantom test suite + the vendored official scorer). validate.py and
+# its run outputs are Week-1-specific verification, not needed by git.
+checks/validate.py
+checks/outputs/
