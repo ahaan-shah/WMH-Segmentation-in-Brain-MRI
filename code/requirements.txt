@@ -1,10 +1,32 @@
+# Pinned environment for the WMH segmentation project (CLAUDE.md Section 6).
+# One venv at code/.venv, Python 3.14.6. Install with:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+#   pip install -r code/requirements.txt
+# torch is listed here for the record but must be installed from the CPU index
+# FIRST, otherwise HD-BET's dependency resolution pulls the ~2.5 GB CUDA build.
+
+# --- core numerics / IO (Week 1) ---
 numpy==2.5.2
 scipy==1.18.0
 pandas==3.0.5
-nibabel==5.4.2
-SimpleITK==2.5.6
-PyYAML==6.0.3
-pytest==9.1.1
+nibabel==5.4.2       # read/write NIfTI
+SimpleITK==2.5.6     # N4 bias correction, k-means tissue segmentation, denoising,
+                     # and the vendored scorer checks/evaluation.py
+PyYAML==6.0.3        # metadata/config.py loads dataset.yaml through this
+pytest==9.1.1        # phantom + geometry test suites, run from the project root
 matplotlib==3.11.1
 jupyter==1.1.1
 ipykernel==7.3.0
+
+# --- Week 2 pre-processing ---
+scikit-image==0.26.0   # morphology, CLAHE, connected components
+scikit-learn==1.9.0    # GaussianMixture tissue segmentation; W5-6 classifiers
+tqdm==4.70.0           # per-subject progress on 170-subject sweeps
+
+# Skull stripping (R1). ROADMAP 5.2's SynthStrip/FSL route is not installable
+# in this environment (no FreeSurfer, no FSL, no Docker), so these two are the
+# candidates competed against each other in Stage 3.
+torch==2.13.0+cpu      # CPU build; no CUDA driver present on this machine
+HD_BET==2.0.1          # nnU-Net based, multi-contrast
+nnunetv2==2.8.1        # pulled in by HD_BET; pinned so the pair stays consistent
+deepbet==1.0.2         # fast alternative, has built-in mask dilation

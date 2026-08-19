@@ -122,3 +122,185 @@ evaluation:
     zeroing out any predicted-positive voxels that fall in a label-2 region
     before scoring. Net effect: label-2 regions are "don't care" — a
     prediction there is neither a true positive nor a false positive.
+
+# ---------------------------------------------------------------------------
+# Week 2 — pre-processing (R1 skull stripping, R2 normalisation, R3 bias field)
+# ---------------------------------------------------------------------------
+# Entries whose value is `null` are decided by a measured sweep in the stage
+# that owns them, not by assertion. Each records the candidates and the
+# selection metric so the choice is reproducible and the report can state why
+# the alternatives were rejected — the rubric grades "clear justifications for
+# algorithmic choices", which means the rejected options have to be on record.
+
+preprocessing:
+
+  geometry_tolerance_mm: 0.001
+  # Tolerance for assert_same_geometry() (metadata/geometry.py), expressed as a
+  # maximum world-space displacement of the voxel grid's corners. Exact affine
+  # equality is NOT usable on this dataset: orig/T1, pre/FLAIR and wmh.nii.gz
+  # carry float32 affines that nibabel promotes to float64, so 6 of 170
+  # subjects disagree with their own FLAIR by up to 6.3e-4 mm of pure storage
+  # rounding. 0.001 mm sits above that and ~4 orders of magnitude below the
+  # smallest voxel dimension in the dataset (0.56 mm), so it cannot mask a real
+  # misregistration.
+
+  working_orientation: RAS
+  storage_orientation: native
+  # Arrays are computed in canonical RAS (loader.load_nifti applies
+  # as_closest_canonical); files are written back in the raw FLAIR's own
+  # orientation, which is LPS for all 170 subjects. Reason: the vendored
+  # official scorer (checks/evaluation.py) reads raw files with SimpleITK and
+  # never canonicalises, so a prediction stored in RAS would be scored against
+  # an LPS reference with matching shapes and no error — a silent, total
+  # collapse of every W7 metric. Enforced by metadata/derived.py being the only
+  # sanctioned write path.
+
+  n4:
+    # R3. Own N4 on orig/FLAIR; the organisers' SPM12 pre/FLAIR is kept strictly
+    # as an independent comparator, never fed into the pipeline (ROADMAP 5.3).
+    shrink_factor: [2, 2, 1]
+    # No shrinking along z: slice thickness is already 3.00 mm everywhere,
+    # against 0.56-1.30 mm in-plane. Shrinking an already-coarse axis discards
+    # the little through-plane information there is.
+    iterations_per_level: 50
+    convergence_threshold: 0.000001
+    candidate_fitting_levels: [2, 3, 4]
+    selected_fitting_levels: null
+    # THE parameter that matters, and the reason it is swept rather than
+    # defaulted. SimpleITK's default (4 levels) lets the B-spline field follow
+    # lesion-scale structure, so on high-burden subjects N4 fits confluent WMH
+    # as though it were scanner inhomogeneity and flattens it away. Measured on
+    # the highest-burden training subject per site: 4 levels cost -32.0% of
+    # lesion-to-WM contrast at Amsterdam (estimated field 1.30x higher inside
+    # lesions than in normal white matter); 3 levels -10.8%; 2 levels -0.2%.
+    # Utrecht moves the other way (+32.3% at 4 levels, +15.7% at 2), so the
+    # sites genuinely disagree and the trade-off has to be measured across all
+    # 60 rather than argued.
+    selection_metric: lesion_wm_cnr_change_and_field_span
+    # Reject any setting that reduces lesion-to-WM contrast-to-noise on any
+    # site; among survivors prefer the largest bias field span removed.
+
+  skull_strip:
+    # R1. ROADMAP 5.2 named SynthStrip primary with FSL FAST as fallback;
+    # neither is installable in this environment (no FreeSurfer, no FSL, no
+    # Docker/Singularity), so that path has no working implementation and the
+    # candidates below replace it. SynthStrip stays the documented escalation
+    # if both candidates fail the acceptance metrics.
+    candidates: [hdbet_flair, hdbet_t1, deepbet_flair, deepbet_t1]
+    selected: null
+    t1_transfer_dilation_voxels: 1
+    # For the *_t1 routes: orig/T1.nii.gz is already FLAIR-aligned and shares
+    # the FLAIR grid exactly, so a T1-derived mask transfers with no
+    # registration. T1 and FLAIR brain boundaries differ slightly, hence the
+    # dilation (ROADMAP 5.2).
+    min_wmh_retained_fraction: 0.999
+    # Acceptance criterion 1, catching OVER-stripping. The reference standard
+    # is defined only inside the brain, so any brain mask that excludes
+    # reference WMH voxels has removed brain. Free, quantitative, and runs on
+    # all 170 subjects without manual inspection.
+    scalp_rejection_check: true
+    # Acceptance criterion 2, catching UNDER-stripping, which criterion 1 is
+    # completely blind to and which is the more dangerous failure for W3.
+    # Retained scalp fat is very bright on FLAIR: at Utrecht, zero percent of
+    # the brightest 1% of head voxels are WMH, and thresholding at the true
+    # WMH median admits a median of 19x (worst case 583x) as many non-WMH
+    # voxels as WMH voxels. Any of that surviving into W3 is segmented as
+    # lesion.
+
+  tissue_segmentation:
+    # Not in ROADMAP's Week 2 definition of done (5.6) at all, but required by
+    # three separate downstream stages: W2 Stage 5 (WM-referenced
+    # normalisation needs a normal-appearing WM reference), W3 (ROADMAP 6.3.1
+    # applies a WM mask to remove false positives), and W4 (R5's "deep white
+    # matter" is undefined without one). Budgeted here because it is a
+    # preprocessing artefact and because leaving it to W3 would block both.
+    input: t1  # orig/T1.nii.gz — already FLAIR-aligned, and T1 separates
+               # WM/GM/CSF far better than FLAIR, where CSF is nulled by design
+    candidates: [sitk_kmeans, sklearn_gmm]
+    n_classes: 3  # CSF, grey matter, white matter
+    selected: null
+    # antspyx (ANTs Atropos) was the obvious tool and is deliberately NOT used:
+    # it publishes no cp314 wheel, so pip falls back to a full ITK/ANTs source
+    # compile. SimpleITK's ScalarImageKmeansImageFilter and scikit-learn's
+    # GaussianMixture are both already available and are what FSL FAST is
+    # built on conceptually (GMM over intensities), so nothing is lost.
+
+  normalisation:
+    # R2. ROADMAP 5.4 recommended z-score within the brain mask as primary.
+    # Measured across all 60 training subjects, that recommendation FAILS and
+    # is overridden here:
+    #   cross-site coefficient of variation of the normalised WMH level —
+    #     z-score    0.525
+    #     percentile 0.404
+    #     WM-referenced 0.284   <- best
+    #   correlation with lesion burden (want ~0, i.e. normalisation must not
+    #   depend on how sick the patient is) —
+    #     z-score    -0.235
+    #     WM-referenced +0.015  <- effectively decoupled
+    # Under z-score, WMH lands at 2.89 at Amsterdam but 0.84 at Utrecht, and
+    # the lowest subject's WMH median (0.24) falls BELOW the highest subject's
+    # WM median (0.99) — so no fixed threshold transfers across sites. That
+    # directly breaks ROADMAP 6.1 Route A, the intensity-threshold baseline
+    # ROADMAP itself calls essential. WM-referenced normalisation is what makes
+    # a fixed threshold meaningful, which is also what ROADMAP 5.4's own
+    # closing paragraph says should happen if W3 takes the thresholding route.
+    primary: wm_referenced
+    comparators: [z_score, percentile]
+    wm_reference_value: 1.0   # normal-appearing white matter maps to 1.0, so
+                              # WMH land above 1.0 on every scanner
+    percentile_range: [1, 99]
+    per_subject: true
+    # Statistics come from each subject's own brain voxels. Fitting
+    # normalisation on the training set and applying it to test would be both
+    # leakage and unnecessary (ROADMAP 5.4).
+    selection_metric: cross_site_coefficient_of_variation
+
+  denoising:
+    # ROADMAP 5.5 / risk register #12. Implemented as an evaluated branch and
+    # expected to be REJECTED — recording that expectation here so the result
+    # is a measured finding rather than a retrofitted excuse either way.
+    # Reason to doubt it: 49.6% of the 3,680 reference lesions in the training
+    # set are <=5 voxels and 69.2% are <=10 voxels, yet those carry only 1.5%
+    # and 3.1% of total lesion volume. Any smoothing that removes them
+    # devastates lesion recall and lesion F1 while barely moving Dice, which is
+    # volume-weighted and therefore blind to exactly this failure. Meanwhile
+    # measured lesion-to-WM CNR is already 7.0 (Utrecht), 14.9 (Singapore) and
+    # 21.7 (Amsterdam), so there is little noise to win back.
+    enabled_in_pipeline: null
+    candidates: [curvature_anisotropic_diffusion, patch_based]
+    small_lesion_voxel_threshold: 10
+    selection_metric: small_lesion_recall_change
+    # Gated on small-lesion preservation, NOT on Dice and NOT on SSIM.
+    persist_outputs: true
+    # W7 (ROADMAP 9.3) reports SSIM for pre-processing quality; that comparison
+    # needs the denoised/original pair still on disk. Persisting is what stops
+    # W7 discovering the inputs were never kept.
+
+  contrast_enhancement:
+    # ROADMAP 5.5. Optional branch, never the default. Enhancement is a
+    # non-linear, spatially varying intensity transform, so it breaks the
+    # intensity semantics that both the threshold baseline (W3 Route A) and any
+    # intensity-feature model depend on. One challenge team (uned_enhanced)
+    # did use non-linear FLAIR enhancement, so it is not disqualifying — it
+    # just has to be justified against the un-enhanced path rather than assumed.
+    method: clahe
+    enabled_in_pipeline: false
+    clip_limit: 0.01
+    kernel_size_fraction: 0.125
+    apply_in_plane_only: true
+    # 2D, in-plane. A 3D tile on a grid with 3 mm slices against ~1 mm in-plane
+    # spans wildly different physical distances per axis.
+
+  morphology:
+    # ROADMAP 5.5 lists morphological processing under Week 2, but its actual
+    # use in this pipeline is false-positive removal AFTER segmentation.
+    # Operators are implemented and validated here in W2 and applied in W3;
+    # both reports say so.
+    implemented_in_week: 2
+    applied_in_week: 3
+    connectivity: 26   # matches checks/evaluation.py (SetFullyConnected(True))
+    min_lesion_size_voxels: null
+    # Swept in W3 against the lesion-recall / lesion-F1 trade-off curve on the
+    # validation split only. Deliberately left unset here: with 49.6% of
+    # reference lesions at <=5 voxels, any minimum-size filter trades directly
+    # between two scored metrics and must not be guessed.

@@ -56,6 +56,28 @@ PERIVENTRICULAR_SENSITIVITY_THRESHOLDS_MM = DATASET_CONFIG["periventricular"][
     "sensitivity_thresholds_mm"
 ]
 
+# --- Week 2 pre-processing (see the `preprocessing:` block in dataset.yaml,
+# which records the measured evidence behind each of these) ---
+PREPROCESSING = DATASET_CONFIG["preprocessing"]
+
+# Tolerance for assert_same_geometry(), as a world-space corner displacement in
+# mm. Exact affine equality is unusable here: 6 of 170 subjects differ from
+# their own FLAIR by up to 6.3e-4 mm of float32 storage rounding.
+GEOMETRY_TOLERANCE_MM = PREPROCESSING["geometry_tolerance_mm"]
+
+# Arrays are computed in canonical RAS; files are written in the raw FLAIR's
+# native orientation so the vendored official scorer can read them directly.
+WORKING_ORIENTATION = PREPROCESSING["working_orientation"]
+STORAGE_ORIENTATION = PREPROCESSING["storage_orientation"]
+
+N4_CONFIG = PREPROCESSING["n4"]
+SKULL_STRIP_CONFIG = PREPROCESSING["skull_strip"]
+TISSUE_SEGMENTATION_CONFIG = PREPROCESSING["tissue_segmentation"]
+NORMALISATION_CONFIG = PREPROCESSING["normalisation"]
+DENOISING_CONFIG = PREPROCESSING["denoising"]
+CONTRAST_ENHANCEMENT_CONFIG = PREPROCESSING["contrast_enhancement"]
+MORPHOLOGY_CONFIG = PREPROCESSING["morphology"]
+
 TRAIN_VAL_SUBJECTS = DATASET_CONFIG["splits"]["train_val_subjects"]
 TRAIN_FRACTION = DATASET_CONFIG["splits"]["train_fraction"]
 VAL_FRACTION = DATASET_CONFIG["splits"]["val_fraction"]

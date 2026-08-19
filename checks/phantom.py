@@ -142,3 +142,58 @@ def build_phantom() -> Phantom:
         connectivity_pair_mask=connectivity_pair_mask,
         blobs=blobs,
     )
+
+
+# ---------------------------------------------------------------------------
+# Week 2 additions: orientation and geometry phantoms
+# ---------------------------------------------------------------------------
+# The blobs above test W4 geometry (distance, connectivity, hemisphere). The
+# helpers below test the W2 I/O boundary instead — specifically the trap that
+# every array in this project is computed in canonical RAS while every file on
+# disk, ours included, is stored LPS, and the vendored official scorer reads
+# raw without canonicalising.
+#
+# A RAS phantom cannot test that: as_closest_canonical() would be a no-op and
+# restore_orientation() would be the identity, so the tests would pass without
+# exercising anything. LPS_AFFINE below therefore mirrors the real dataset,
+# where all 170 subjects report LPS.
+
+# LPS: +x -> Left, +y -> Posterior, +z -> Superior, with the same anisotropic
+# 1.0 x 1.0 x 3.0 mm spacing as the RAS phantom above and as real FLAIR.
+LPS_AFFINE = np.array(
+    [
+        [-1.0, 0.0, 0.0, 30.0],
+        [0.0, -1.0, 0.0, 30.0],
+        [0.0, 0.0, 3.0, -15.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+)
+
+# Deliberately asymmetric in all three axes: a marker at the centre, or on any
+# plane of symmetry, would survive an axis flip undetected and the round-trip
+# test would prove nothing.
+MARKER_VOXEL = (10, 20, 2)
+MARKER_VALUE = 1000.0
+
+# Corner displacement used to check the geometry tolerance from both sides:
+# well under the 0.001 mm tolerance, and well over it.
+SUBTOLERANCE_SHIFT_MM = 1e-5
+SUPRATOLERANCE_SHIFT_MM = 1.0
+
+
+def build_marker_volume(shape=SHAPE, marker_voxel=MARKER_VOXEL):
+    """Volume that is zero everywhere except a single marker voxel."""
+    array = np.zeros(shape, dtype=np.float32)
+    array[marker_voxel] = MARKER_VALUE
+    return array
+
+
+def build_lps_image():
+    """A marker volume wrapped in an LPS-oriented NIfTI image, like the real data.
+
+    Returned as a nibabel image (not a Phantom) because the orientation tests
+    operate on images and affines rather than on masks.
+    """
+    import nibabel as nib
+
+    return nib.Nifti1Image(build_marker_volume(), LPS_AFFINE)
