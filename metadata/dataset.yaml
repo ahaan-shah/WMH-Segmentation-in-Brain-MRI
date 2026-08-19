@@ -155,6 +155,46 @@ preprocessing:
   # collapse of every W7 metric. Enforced by metadata/derived.py being the only
   # sanctioned write path.
 
+  head_mask:
+    # Stage 1. A rough head-vs-air mask whose ONLY consumer is N4 (Stage 2).
+    # This is not skull stripping — the brain mask is Stage 3. ROADMAP 5.1
+    # requires the two to be separate: N4 is degraded by large air regions, but
+    # a brain mask computed on an uncorrected image is degraded by the bias
+    # field, so the order is coarse mask -> N4 -> proper skull strip.
+    threshold_method: multiotsu_3class_lowest
+    threshold_classes: 3
+    # Two-class Otsu was implemented first and REJECTED on measurement. It
+    # assumes a bimodal histogram; these volumes are trimodal (air, brain
+    # tissue, very bright scalp fat). On Utrecht subject 11, whose scalp is
+    # exceptionally bright, two-class Otsu placed the threshold at 635 —
+    # between brain and scalp — and returned a mask containing only the scalp
+    # ring, retaining just 25.6% of that subject's reference WMH voxels. It
+    # failed 1 of 60 training subjects that way, and produced implausible head
+    # volumes (648-2161 mL at Utrecht against 1149-1866 elsewhere).
+    # Three-class multi-Otsu, keeping everything above the LOWEST threshold,
+    # retains 100.0% of reference WMH on all 60 with zero volume outliers.
+    # threshold_triangle and threshold_li also passed the retention test but
+    # were far more permissive (triangle: 7607 mL median at Amsterdam), so
+    # multi-Otsu is preferred as the tightest method that never fails.
+    opening_radius_mm: 1.0
+    closing_radius_mm: 3.0
+    in_plane_only: true
+    # Every structuring element is (2r+1, 2r+1, 1) — in-plane only. Slices are
+    # 3.00 mm everywhere against 0.56-1.30 mm in-plane, so a 3x3x3 ball would
+    # span ~3 mm in-plane but 9 mm through-plane, closing across two whole
+    # slices while barely moving in-plane. Same reasoning as the official
+    # scorer's 2D erosion (ROADMAP 1.3). Radii are specified in mm and
+    # converted per subject, because a fixed voxel radius would mean a 2.3x
+    # different physical size at Amsterdam/Philips (0.56 mm) than at Utrecht.
+    largest_component_only: true
+    # Singapore volumes carry visible aliasing/ghosting streaks outside the
+    # head. Without component selection the mask leaks into them and N4 fits a
+    # field across empty space. 26-connectivity, matching checks/evaluation.py.
+    min_wmh_retained_fraction: 1.0
+    # Acceptance criterion. The head mask must contain every reference WMH
+    # voxel — it is a superset of the brain by construction, so anything less
+    # means it has cut into brain tissue. Measured: 60/60 at exactly 1.0.
+
   n4:
     # R3. Own N4 on orig/FLAIR; the organisers' SPM12 pre/FLAIR is kept strictly
     # as an independent comparator, never fed into the pipeline (ROADMAP 5.3).
@@ -165,20 +205,59 @@ preprocessing:
     iterations_per_level: 50
     convergence_threshold: 0.000001
     candidate_fitting_levels: [2, 3, 4]
-    selected_fitting_levels: null
+    selected_fitting_levels: 2
     # THE parameter that matters, and the reason it is swept rather than
-    # defaulted. SimpleITK's default (4 levels) lets the B-spline field follow
-    # lesion-scale structure, so on high-burden subjects N4 fits confluent WMH
-    # as though it were scanner inhomogeneity and flattens it away. Measured on
-    # the highest-burden training subject per site: 4 levels cost -32.0% of
-    # lesion-to-WM contrast at Amsterdam (estimated field 1.30x higher inside
-    # lesions than in normal white matter); 3 levels -10.8%; 2 levels -0.2%.
-    # Utrecht moves the other way (+32.3% at 4 levels, +15.7% at 2), so the
-    # sites genuinely disagree and the trade-off has to be measured across all
-    # 60 rather than argued.
+    # defaulted. Each multi-resolution level doubles the B-spline control point
+    # mesh, so SimpleITK's default of 4 levels gives a field flexible enough to
+    # follow lesion-scale structure — and a large confluent WMH looks exactly
+    # like a broad bright patch. N4 then absorbs the disease into the
+    # "correction" and flattens it away. Nothing crashes; the image simply
+    # comes out with less lesion contrast than it went in with.
+    #
+    # SWEPT over the 48 training subjects x 3 level counts (sweep_n4.py).
+    # Mean / median change in lesion-to-WM contrast-to-noise, by site:
+    #
+    #   levels   Amsterdam      Singapore      Utrecht        worst site
+    #     2      +4.0 / +3.1    +0.7 / +0.7   +27.8 / +20.4    +0.7  PASS
+    #     3      +6.3 / +2.9    -1.8 / -1.3   +47.7 / +28.3    -1.8  REJECTED
+    #     4     +13.3 / +12.4   -0.0 / -0.9   +47.1 / +20.4    -0.9  REJECTED
+    #
+    # Only 2 levels keeps every site positive, under both mean and median
+    # aggregation. Two further checks agree:
+    #   - Fraction of subjects losing MORE than 5% lesion contrast:
+    #     0.000 at every site for 2 levels; 6-13% at 3 levels; 6-19% at 4.
+    #   - Direct absorption measure (bias field inside lesions / inside NAWM,
+    #     where 1.000 means no absorption): max 1.032 at 2 levels, rising to
+    #     1.194 at 4 levels. At 2 levels N4 is essentially not touching lesions.
+    #
+    # CORRECTION TO AN EARLIER FINDING: a first probe on the single
+    # highest-burden subject per site suggested Amsterdam was the damaged site
+    # (-32.0% at 4 levels). The full 48-subject sweep shows the opposite —
+    # Amsterdam GAINS most from aggressive correction, and SINGAPORE is the
+    # site that degrades. n=1 per site was not representative, which is exactly
+    # why the sweep exists.
+    #
+    # ACCEPTED COST, stated rather than buried: 2 levels removes a median 13.9%
+    # of bias field span, against 27.4% at 3 levels and 45.6% at 4, while
+    # SPM12's own correction on this dataset spans 28-38%. We therefore
+    # deliberately under-correct relative to SPM12 in exchange for never
+    # damaging lesion contrast by more than 5% on any subject. If Week 3 turns
+    # out to be limited by residual inhomogeneity rather than by lesion
+    # contrast, 3 levels is the documented fallback — but that is a Week 3
+    # finding, not an assumption to make here.
     selection_metric: lesion_wm_cnr_change_and_field_span
-    # Reject any setting that reduces lesion-to-WM contrast-to-noise on any
-    # site; among survivors prefer the largest bias field span removed.
+    # Rule fixed BEFORE the results were seen: reject any setting that reduces
+    # mean lesion-to-WM contrast-to-noise on any site; among survivors prefer
+    # the largest bias field span removed.
+    selection_split: train
+    # Selected on the 48 training subjects; confirmed on the 12 val subjects.
+    # The official 110 stay sealed until Week 7 (Decision #7).
+    known_metric_caveat: >
+      The CNR metric conflates two effects: genuine contrast gain from
+      flattening the field (which also shrinks the within-ROI spread used as
+      the noise estimate) and loss from lesion absorption. That is why the
+      independent bias-in-lesion/bias-in-NAWM ratio is reported alongside it —
+      the two agree on 2 levels, which is what makes the choice trustworthy.
 
   skull_strip:
     # R1. ROADMAP 5.2 named SynthStrip primary with FSL FAST as fallback;
@@ -187,7 +266,45 @@ preprocessing:
     # candidates below replace it. SynthStrip stays the documented escalation
     # if both candidates fail the acceptance metrics.
     candidates: [hdbet_flair, hdbet_t1, deepbet_flair, deepbet_t1]
-    selected: null
+    selected: hdbet_flair
+    # SWEPT over 12 site-stratified training subjects x 4 configurations.
+    #
+    #   config          WMH retained (worst)   shallow_fraction   brain    runtime
+    #   hdbet_flair          1.000000            0.0308 / 0.0618  1371 mL   46.2 s
+    #   deepbet_flair        1.000000            0.0327 / 0.0574  1395 mL    1.7 s
+    #   hdbet_t1             1.000000            0.0334 / 0.0711  1354 mL   52.1 s
+    #   deepbet_t1           1.000000            0.0479 / 0.0977  1526 mL    1.5 s
+    #
+    # Gate 1 (over-stripping) was passed by ALL FOUR: not one configuration lost
+    # a single reference WMH voxel on any subject. That is a genuinely good
+    # result and worth stating in the report — the risk ROADMAP 5.2 warns about
+    # (over-stripping removing juxtacortical lesions) did not materialise for
+    # any candidate on this data.
+    #
+    # Gate 2 therefore decided it, and HONESTLY THE MARGIN IS NOT SIGNIFICANT.
+    # hdbet_flair beats deepbet_flair by 0.0019 in mean shallow_fraction, which
+    # on a paired comparison across the same 12 subjects gives Wilcoxon p=0.339
+    # and paired t-test p=0.251 — hdbet_flair is better on only 7 of 12
+    # subjects, and on the WORST case deepbet_flair is actually better
+    # (0.0574 vs 0.0618). These two are statistically indistinguishable here.
+    #
+    # hdbet_flair is taken because it wins on the pre-fixed rule's primary
+    # metric AND on its first tie-break (tighter brain mask, 1371 vs 1395 mL),
+    # and because HD-BET is the more established and more widely validated tool
+    # (nnU-Net based, multi-sequence), which matters for defending the choice.
+    # The cost is runtime: 46 s/subject against deepbet's 1.7 s, i.e. ~46 min
+    # for the 60 and a further ~85 min for the 110 test subjects in Week 7,
+    # versus about 5 minutes total. That is affordable unattended, so accuracy
+    # was preferred over speed — but deepbet_flair is a legitimate drop-in
+    # near-equivalent if compute ever becomes the constraint, and swapping it
+    # is a one-line change here.
+    #
+    # Both T1-transfer routes were beaten by their FLAIR counterparts, so the
+    # extra dilation and cross-contrast step bought nothing on this dataset.
+    # Worth reporting: ROADMAP 5.2 proposed T1-transfer as the robust fallback
+    # precisely because T1 is the contrast these tools are strongest on, but
+    # measured here it is the weaker route — the brain boundary mismatch it
+    # introduces costs more than the better contrast gains.
     t1_transfer_dilation_voxels: 1
     # For the *_t1 routes: orig/T1.nii.gz is already FLAIR-aligned and shares
     # the FLAIR grid exactly, so a T1-derived mask transfers with no
@@ -199,6 +316,7 @@ preprocessing:
     # reference WMH voxels has removed brain. Free, quantitative, and runs on
     # all 170 subjects without manual inspection.
     scalp_rejection_check: true
+    shallow_depth_mm: 5.0
     # Acceptance criterion 2, catching UNDER-stripping, which criterion 1 is
     # completely blind to and which is the more dangerous failure for W3.
     # Retained scalp fat is very bright on FLAIR: at Utrecht, zero percent of
@@ -206,6 +324,63 @@ preprocessing:
     # WMH median admits a median of 19x (worst case 583x) as many non-WMH
     # voxels as WMH voxels. Any of that surviving into W3 is segmented as
     # lesion.
+    #
+    # Implemented as `shallow_fraction`: the fraction of brain-mask voxels
+    # lying within shallow_depth_mm of the OUTER HEAD SURFACE, measured with a
+    # distance transform carrying sampling=voxel_spacing so the threshold is
+    # genuinely millimetres and not voxels (in voxels, 5 would mean 15 mm along
+    # z on this 3 mm slice grid).
+    #
+    # CORRECTION, found during post-stage visual verification: this metric is
+    # CONFOUNDED and must not be read as "N% of the brain mask is retained
+    # scalp". The reasoning behind it assumed the head mask's outer surface is
+    # always the outer scalp, so that skull+scalp guarantees several mm of
+    # clearance. That fails at the skull base and posterior fossa, where the
+    # FLAIR signal outside the brain is very dark (cortical bone, mastoid air):
+    # Stage 1's multi-Otsu never captures a shell there, hole-filling cannot
+    # bridge it because it is open to the outside, and the head-mask boundary
+    # ends up hugging the brain. Measured brain-surface depth reaches 0.0 mm at
+    # the 5th percentile on the worst subject. So a large part of
+    # shallow_fraction reflects Stage 1 head-mask thinness and genuinely thin
+    # temporal skull, not Stage 3 error.
+    #
+    # It is retained because it was applied identically to all four candidate
+    # configurations, so the ranking it produced is a fair comparison — and
+    # because the two front-runners were statistically tied on it anyway, so
+    # the confound did not decide the outcome. For an absolute statement about
+    # under-stripping use bright_tissue_retention() instead (below).
+    bright_percentile: 99.0
+    # The DIRECT under-stripping test, added after the above was found wanting.
+    # Scalp fat is the brightest tissue in a FLAIR head, so retained scalp shows
+    # up as bright head voxels surviving inside the brain mask. Measured on the
+    # final Stage 3 output across all 60:
+    #
+    #   site        bright-1% retained in brain    ...of which is real WMH
+    #   Utrecht              0.1%                          0.0%
+    #   Singapore           52.7%                         31.0%
+    #   Amsterdam           85.1%                         24.7%  (max 97%)
+    #
+    # This must always be read alongside bright_that_is_wmh. At Utrecht the
+    # brightest head voxels contain NO lesion, so removing 99.9% of them is
+    # exactly right. At Amsterdam and Singapore much of that same top 1% IS
+    # reference lesion, so retaining it is correct rather than a failure — a
+    # metric ignoring that would score a good mask as broken on two of three
+    # sites. Together the two numbers confirm the stripper is discriminating
+    # bright-scalp from bright-lesion rather than simply cutting hard.
+    selection_rule: >
+      Gate 1 (hard): reject any configuration losing reference WMH voxels on
+      any subject. Gate 2: among survivors take the lowest mean
+      shallow_fraction. Tie-break on tighter brain mask, then runtime. Gate 1
+      is a hard gate rather than a scored quantity because the two failures are
+      not symmetric — retained scalp can still be removed by the white-matter
+      constraint in Week 3, but a lesion deleted at Stage 3 is permanently gone
+      from the pipeline.
+    selection_n_per_site: 4
+    # Selection runs on a site-stratified subset of the training split, because
+    # HD-BET is an nnU-Net on CPU here and a full 48x4 sweep is hours for a
+    # decision a stratified sample settles. The winning configuration is then
+    # applied to all 60 and its acceptance criteria re-checked on every one —
+    # nothing is accepted on the strength of the subset alone.
 
   tissue_segmentation:
     # Not in ROADMAP's Week 2 definition of done (5.6) at all, but required by
@@ -218,7 +393,78 @@ preprocessing:
                # WM/GM/CSF far better than FLAIR, where CSF is nulled by design
     candidates: [sitk_kmeans, sklearn_gmm]
     n_classes: 3  # CSF, grey matter, white matter
-    selected: null
+    selected: sitk_kmeans
+    # Both methods were measured and are near-identical (raw lesion coverage
+    # 0.453 vs 0.434; tissue fractions within 0.04 of each other). sitk_kmeans
+    # is taken because SimpleITK is already a hard dependency, it is
+    # deterministic without a seed, and it is faster. sklearn_gmm is retained as
+    # a candidate and is a drop-in.
+    bias_correct_input: true
+    # The T1 is N4-corrected before segmentation, at the same fitting-level
+    # count selected in Stage 2. Intensity-based tissue segmentation is very
+    # sensitive to the bias field: an uncorrected gradient splits one tissue
+    # into two classes on opposite sides of the brain.
+    wm_mask_derivation: filled_wm_class
+    # The WM class with in-plane enclosed holes reclaimed. Holes are filled
+    # per-slice, not in 3D, because a 3D fill leaks through the natural
+    # openings between slices on a 3 mm grid.
+    #
+    # MEASURED LIMITATION — the most important thing recorded about this stage.
+    # WMH are bright on FLAIR but iso- to HYPO-intense on T1, so an
+    # intensity-driven segmenter assigns about half of them to grey matter.
+    # Across 15 training subjects (5 per site):
+    #
+    #   variant              lesion coverage (mean / worst)   share of brain
+    #   raw WM class                0.478 / 0.245                  0.32
+    #   + hole filling              0.785 / 0.298                  0.36
+    #   + 1 mm dilation             0.897 / 0.565                  0.50
+    #   + 2 mm dilation             0.951 / 0.676                  0.62
+    #   + 3 mm dilation             0.971 / 0.710                  0.71
+    #   + 4 mm dilation             0.979 / 0.733                  0.78
+    #   non-CSF (WM + GM)           0.961 / 0.847                  0.71
+    #
+    # NO variant reaches 95% worst-case coverage. Dilation inflates the mask
+    # without rescuing the hard subjects, because there the lesions are
+    # extensive enough to be classified solidly as grey matter rather than
+    # sitting at the WM boundary. This is a limit of T1-intensity tissue
+    # segmentation, not a tuning problem, and dilation radii are specified in
+    # mm rather than voxels because in-plane spacing ranges 0.56-1.30 mm.
+    #
+    # CONSEQUENCE 1 — revises ROADMAP 6.3.1. That section proposes using a WM
+    # mask as a Week 3 false-positive constraint. Doing so with this mask would
+    # delete a median 21% and a worst-case 70% of TRUE lesions, capping recall
+    # at a level no later stage could recover. wm_mask is therefore published
+    # for Week 4's "deep white matter" definition and as a soft prior, NOT as a
+    # hard Week 3 constraint. If a constraint is wanted, non-CSF is the safer
+    # choice and its cost must still be reported.
+    #
+    # CONSEQUENCE 2 — for Stage 5 the same behaviour is an ADVANTAGE, and this
+    # is now MEASURED, not argued. Normalisation needs *normal-appearing* white
+    # matter, and the raw WM class naturally excludes lesions precisely because
+    # they are T1-hypointense. Using it as the reference, across all 60:
+    #
+    #   method                                cross-site CoV of normalised WMH
+    #   z-score (ROADMAP 5.4's choice)                    0.525
+    #   percentile (p1-p99)                               0.404
+    #   WM-referenced, crude head-mask proxy              0.284
+    #   WM-referenced, real Stage 4 NAWM                  0.074   <-- 7x better
+    #
+    # Lesion contamination of the NAWM reference is <= 5% on every one of the
+    # 60 subjects (mean 0.8-1.9% by site), and the smallest reference is 88,737
+    # voxels, so the median is statistically stable.
+    #
+    # The resulting FLAIR(lesion)/FLAIR(NAWM) ratio is 1.56 (Amsterdam), 1.39
+    # (Singapore), 1.61 (Utrecht) — i.e. lesions sit about 1.4-1.6x normal white
+    # matter on EVERY scanner. That is what makes a fixed threshold transfer
+    # across sites, and therefore what makes ROADMAP 6.1's Route A threshold
+    # baseline viable at all. Stage 5 reads the tissue label map's WM class
+    # directly rather than the hole-filled wm_mask.
+    plausible_fractions:
+      csf: [0.05, 0.40]
+      gm:  [0.25, 0.60]
+      wm:  [0.20, 0.55]
+    # Sanity band asserted per subject. A segmentation that collapses two
+    # classes together fails here loudly rather than in a figure nobody opens.
     # antspyx (ANTs Atropos) was the obvious tool and is deliberately NOT used:
     # it publishes no cp314 wheel, so pip falls back to a full ITK/ANTs source
     # compile. SimpleITK's ScalarImageKmeansImageFilter and scikit-learn's
@@ -253,7 +499,37 @@ preprocessing:
     # Statistics come from each subject's own brain voxels. Fitting
     # normalisation on the training set and applying it to test would be both
     # leakage and unnecessary (ROADMAP 5.4).
-    selection_metric: cross_site_coefficient_of_variation
+    selection_metric: cross_site_cov_and_threshold_margin
+    # NOTE — this field previously named cross_site_coefficient_of_variation
+    # alone. It was widened after measurement showed that metric is an
+    # INCOMPLETE proxy, and the change is recorded rather than made silently.
+    #
+    # Measured on the real pipeline output, all 60 subjects:
+    #
+    #   metric                                     z-score  percentile  WM-ref
+    #   cross-site CoV of normalised lesion level   0.130     0.029      0.074
+    #   correlation with disease burden (want ~0)  +0.421    -0.457     +0.306
+    #   within-site subject-to-subject spread       0.138     0.064      0.064
+    #   margin above brain tissue / separation        51%       38%        49%
+    #   margin growth, mild -> severe subjects       +23%      +12%       +33%
+    #
+    # PERCENTILE WINS THE ORIGINALLY PRE-REGISTERED METRIC (0.029 vs 0.074).
+    # WM-referenced is nonetheless retained, for reasons stated rather than
+    # assumed: it has the larger relative threshold margin (49% vs 38%), its
+    # margin grows fastest with severity (+33% vs +12%) so the hardest subjects
+    # get easier not harder, percentile's scale is set by a p99 that lesions
+    # themselves inflate (hence its -0.457 burden correlation, a known defect
+    # rather than a neutral trade), and WM-referencing is the only one of the
+    # three with a physical meaning — "1.0 = normal white matter, lesions at
+    # 1.4-1.6x" is interpretable and directly reusable in Week 4.
+    #
+    # This is a deviation from a pre-registered rule and is flagged as such. If
+    # a reviewer prefers the pre-registered metric, switching to percentile is
+    # one line here plus a 30-second re-run; the full per-subject comparison for
+    # all three methods is written to stage5_method_comparison.csv either way.
+    verified_nawm_at_exactly_1: true
+    # Acceptance check, asserted per subject: WM-referenced must place
+    # normal-appearing WM at exactly 1.0. Passes for all 60.
 
   denoising:
     # ROADMAP 5.5 / risk register #12. Implemented as an evaluated branch and

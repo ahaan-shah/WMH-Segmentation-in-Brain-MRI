@@ -87,6 +87,35 @@ def discover_subjects() -> list[Subject]:
     return subjects
 
 
+def load_split(split_name: str) -> list[str]:
+    """Return the subject_keys in a frozen split ('train', 'val', or 'test').
+
+    Splits were written once in Week 1 and committed (CLAUDE.md W1.5). Reading
+    them through here rather than re-deriving a split anywhere is what keeps
+    the test set sealed until Week 7 (Decision #7) and prevents the subject-level
+    leakage that would silently inflate every Week 3 number.
+    """
+    from metadata.config import METADATA_OUTPUTS
+
+    valid = {"train", "val", "test"}
+    if split_name not in valid:
+        raise ValueError(f"Unknown split {split_name!r}; expected one of {sorted(valid)}")
+
+    path = METADATA_OUTPUTS / f"split_{split_name}.txt"
+    if not path.exists():
+        raise FileNotFoundError(f"Split file not found: {path}. Run metadata/make_splits.py.")
+
+    keys = [line.strip() for line in path.read_text().splitlines() if line.strip()]
+    if not keys:
+        raise ValueError(f"Split file {path} is empty")
+    return keys
+
+
+def subjects_by_key() -> dict[str, Subject]:
+    """All discovered subjects, keyed by subject_key, for split-driven lookup."""
+    return {s.subject_key: s for s in discover_subjects()}
+
+
 def get_scanner_metadata(site: str, scanner_dir: str | None) -> dict:
     """Look up best-effort scanner metadata; never guesses beyond what's recorded."""
     key = (site, scanner_dir)

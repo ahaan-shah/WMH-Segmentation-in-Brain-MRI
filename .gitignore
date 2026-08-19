@@ -14,3 +14,15 @@ __pycache__/
 # its run outputs are Week-1-specific verification, not needed by git.
 checks/validate.py
 checks/outputs/
+
+# Per-run logs. Written fresh on every execution and named by date, so they
+# accumulate one file per script per day — exactly the pattern CLAUDE.md
+# Section 5.4 rules out. They stay on disk as the debugging record for the
+# current run (Section 5.6 still requires them), they just aren't history:
+# every number they contain is already in the QC CSVs and the subject index,
+# which ARE tracked and carry provenance sidecars.
+#
+# Applied uniformly, including the two Week 1 logs under metadata/outputs/ that
+# predate this rule — those were untracked with `git rm --cached` in the same
+# commit that added this line, and remain on disk.
+*.log

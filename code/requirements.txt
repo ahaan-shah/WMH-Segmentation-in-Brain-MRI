@@ -27,6 +27,11 @@ tqdm==4.70.0           # per-subject progress on 170-subject sweeps
 # in this environment (no FreeSurfer, no FSL, no Docker), so these two are the
 # candidates competed against each other in Stage 3.
 torch==2.13.0+cpu      # CPU build; no CUDA driver present on this machine
+torchvision==0.28.0+cpu
+# torchvision MUST come from the CPU index too. HD_BET -> nnunetv2 pulls it in
+# transitively, and pip takes it from PyPI (a CUDA build) unless told otherwise;
+# the mismatch against torch's CPU build fails at import with
+# "RuntimeError: operator torchvision::nms does not exist".
 HD_BET==2.0.1          # nnU-Net based, multi-contrast
 nnunetv2==2.8.1        # pulled in by HD_BET; pinned so the pair stays consistent
 deepbet==1.0.2         # fast alternative, has built-in mask dilation

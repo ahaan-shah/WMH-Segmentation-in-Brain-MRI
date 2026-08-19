@@ -6,8 +6,11 @@ FLAIR, tissue masks, normalised FLAIR, and in later weeks predicted lesion
 masks — is written through `save_derived()`. Centralising it is what enforces
 four separate rules at once, none of which survive being left to memory:
 
-- **Raw data stays immutable.** Output is rooted at `data/interim/`; nothing
-  here can write into `data/raw/`.
+- **Raw data stays immutable.** Output is rooted at `data/interim/` or
+  `data/processed/`; nothing here can write into `data/raw/`. Which of the two
+  an artefact lands in is decided by ARTEFACT_ROOTS below — `processed/` holds
+  only what a later week actually reads, `interim/` holds the scaffolding that
+  produced it.
 - **Everything stays in FLAIR space.** Every save asserts the array's geometry
   against that subject's own FLAIR before writing (ROADMAP Section 3's
   invariant), so a resampled or mis-shaped array fails at the boundary that
@@ -32,7 +35,7 @@ from pathlib import Path
 import nibabel as nib
 import numpy as np
 
-from metadata.config import DATA_INTERIM
+from metadata.config import DATA_INTERIM, DATA_PROCESSED
 from metadata.geometry import assert_same_geometry, restore_orientation
 from metadata.loader import Subject, load_nifti
 from metadata.provenance import write_manifest
@@ -50,14 +53,57 @@ FLAIR_DENOISED = "flair_denoised"  # Stage 6 — evaluated branch, kept for W7 S
 FLAIR_CLAHE = "flair_clahe"  # Stage 6 — evaluated branch
 
 
-def derived_dir(subject_key: str) -> Path:
-    """Directory holding one subject's derived artefacts."""
-    return DATA_INTERIM / subject_key
+# Where each artefact lives. The split is by ROLE, not by the stage that made
+# it: `data/processed/` holds only what a later week actually consumes, and
+# `data/interim/` holds working files that exist to produce those.
+#
+# The test for `processed`: if Week 3 started from a clean checkout with this
+# pipeline already run, which files would it open? Those three — the normalised
+# FLAIR it segments, the brain mask that bounds the search, and the white-matter
+# mask it uses to remove false positives (also Week 4's definition of "deep"
+# white matter). Everything else is scaffolding: the head mask exists only to
+# give N4 a region to fit in, the bias field only to be inspected and reported,
+# the N4-corrected FLAIR only as the input to normalisation.
+#
+# Keeping that boundary explicit means `data/processed/` is the Week 2
+# deliverable and can be handed on, backed up, or regenerated as a unit —
+# rather than Week 3 having to know which of six files in a shared directory
+# are the real ones.
+ARTEFACT_ROOTS = {
+    HEAD_MASK: DATA_INTERIM,
+    FLAIR_N4: DATA_INTERIM,
+    BIAS_FIELD: DATA_INTERIM,
+    TISSUE_SEG: DATA_INTERIM,
+    FLAIR_DENOISED: DATA_INTERIM,  # evaluated branch, kept on disk for W7's SSIM
+    FLAIR_CLAHE: DATA_INTERIM,  # evaluated branch, not in the default pipeline
+    BRAIN_MASK: DATA_PROCESSED,  # R1 — consumed by W3 and W4
+    WM_MASK: DATA_PROCESSED,  # consumed by W3 (FP removal) and W4 (deep WMH)
+    FLAIR_NORM: DATA_PROCESSED,  # R2 — the image W3 actually segments
+}
+
+
+def artefact_root(name: str) -> Path:
+    """Which of data/interim or data/processed an artefact belongs in.
+
+    Unknown names raise rather than defaulting, so a new artefact has to make a
+    deliberate decision about whether it is a deliverable or scaffolding.
+    """
+    if name not in ARTEFACT_ROOTS:
+        raise KeyError(
+            f"Unknown artefact {name!r}. Add it to ARTEFACT_ROOTS in metadata/derived.py, "
+            f"choosing data/processed/ only if a later week reads it directly."
+        )
+    return ARTEFACT_ROOTS[name]
+
+
+def derived_dir(subject_key: str, name: str) -> Path:
+    """Directory holding one subject's copy of a given artefact."""
+    return artefact_root(name) / subject_key
 
 
 def derived_path(subject_key: str, name: str) -> Path:
     """Resolved path of a single derived artefact."""
-    return derived_dir(subject_key) / f"{name}.nii.gz"
+    return derived_dir(subject_key, name) / f"{name}.nii.gz"
 
 
 def derived_exists(subject_key: str, name: str) -> bool:
