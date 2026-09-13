@@ -10,6 +10,7 @@ and distance-unit errors.
 """
 
 import numpy as np
+import pytest
 from scipy.ndimage import distance_transform_edt, label
 
 from checks.metrics import dice_coefficient
@@ -131,3 +132,105 @@ def test_dice_self_is_one_and_complement_is_zero():
 
     assert dice_coefficient(mask, mask) == 1.0
     assert dice_coefficient(mask, ~mask) == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Week 4 feature extraction (R6-R9) — tested against the phantom's known answers
+# ---------------------------------------------------------------------------
+
+
+def test_feret_diameter_uses_world_coordinates_not_voxel_counts():
+    """The R8 trap. A lesion running through-plane spans 3 mm per voxel but only
+    1 mm per voxel in-plane; measuring in voxel counts inflates it by 3x."""
+    from features.lesion_features import maximum_feret_diameter_mm
+
+    phantom = build_phantom()
+    # Five voxels along z: 4 gaps x 3.0 mm spacing = 12.0 mm, NOT 4.
+    through_plane = np.array([[30, 30, z] for z in range(5)])
+    assert maximum_feret_diameter_mm(through_plane, phantom.affine) == pytest.approx(12.0)
+
+    # Five voxels along x: 4 gaps x 1.0 mm = 4.0 mm.
+    in_plane = np.array([[x, 30, 5] for x in range(30, 35)])
+    assert maximum_feret_diameter_mm(in_plane, phantom.affine) == pytest.approx(4.0)
+
+
+def test_feret_finds_the_true_longest_span_of_an_elongated_lesion():
+    """Why Feret is the primary diameter: on a long thin lesion it reports the
+    length, while equivalent-sphere reports a small fraction of it."""
+    from features.lesion_features import (
+        equivalent_sphere_diameter_mm,
+        maximum_feret_diameter_mm,
+    )
+
+    phantom = build_phantom()
+    # 40 mm long, 2 voxels wide, one slice thick.
+    coords = np.array([[x, y, 5] for x in range(10, 50) for y in (30, 31)])
+    feret = maximum_feret_diameter_mm(coords, phantom.affine)
+    equivalent = equivalent_sphere_diameter_mm(len(coords) * phantom.voxel_volume_mm3)
+
+    assert feret == pytest.approx(np.hypot(39.0, 1.0), rel=1e-6)
+    assert feret > 3 * equivalent, (
+        f"Feret {feret:.1f} mm vs equivalent-sphere {equivalent:.1f} mm — this gap is "
+        f"exactly why the primary diameter was switched to Feret in Week 4"
+    )
+
+
+def test_single_voxel_lesion_has_zero_feret_diameter():
+    from features.lesion_features import maximum_feret_diameter_mm
+
+    phantom = build_phantom()
+    assert maximum_feret_diameter_mm(np.array([[30, 30, 5]]), phantom.affine) == 0.0
+
+
+def test_equivalent_sphere_diameter_matches_the_formula():
+    from features.lesion_features import equivalent_sphere_diameter_mm
+
+    # A sphere of radius 10 mm has volume 4/3 pi r^3 and diameter 20 mm.
+    volume = 4.0 / 3.0 * np.pi * 10.0 ** 3
+    assert equivalent_sphere_diameter_mm(volume) == pytest.approx(20.0)
+
+
+def test_features_recover_the_phantom_blob_counts_and_volumes():
+    """R6 and R7 against blobs of exactly known size."""
+    from features.lesion_features import extract_features
+
+    phantom = build_phantom()
+    features = extract_features(
+        phantom.wmh_mask, phantom.affine, phantom.voxel_volume_mm3, source="phantom"
+    )
+    assert features["lesion_count_26conn"] == len(phantom.blobs)   # 4 blobs placed
+    expected_voxels = sum(blob.n_voxels for blob in phantom.blobs.values())
+    assert features["total_lesion_voxels"] == expected_voxels
+    assert features["total_lesion_volume_ml"] == pytest.approx(
+        expected_voxels * phantom.voxel_volume_mm3 / 1000.0
+    )
+
+
+def test_hemisphere_assignment_matches_the_phantom_blobs():
+    """R9. The phantom places one blob on each side at known world x."""
+    from features.lesion_features import extract_features
+
+    phantom = build_phantom()
+    brain = np.zeros(phantom.shape, dtype=bool)
+    brain[5:55, 5:55, 0:10] = True  # symmetric about the phantom's midline
+
+    for side, other in (("right", "left"), ("left", "right")):
+        blob = np.zeros(phantom.shape, dtype=bool)
+        blob[phantom.blobs[side].voxel_slice] = True
+        features = extract_features(blob, phantom.affine, phantom.voxel_volume_mm3,
+                                    brain_mask=brain, source="phantom")
+        assert features[f"{side}_lesion_volume_ml"] > 0, f"{side} blob assigned to {other}"
+        assert features[f"{other}_lesion_volume_ml"] == 0.0
+
+
+def test_laterality_index_sign_is_left_minus_right():
+    from features.lesion_features import extract_features
+
+    phantom = build_phantom()
+    brain = np.zeros(phantom.shape, dtype=bool)
+    brain[5:55, 5:55, 0:10] = True
+    left_blob = np.zeros(phantom.shape, dtype=bool)
+    left_blob[phantom.blobs["left"].voxel_slice] = True
+    features = extract_features(left_blob, phantom.affine, phantom.voxel_volume_mm3,
+                                brain_mask=brain, source="phantom")
+    assert features["laterality_index"] == pytest.approx(1.0)
