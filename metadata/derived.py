@@ -52,6 +52,10 @@ FLAIR_NORM = "flair_norm"  # Stage 5 — normalised FLAIR (R2)
 FLAIR_DENOISED = "flair_denoised"  # Stage 6 — evaluated branch, kept for W7 SSIM
 FLAIR_CLAHE = "flair_clahe"  # Stage 6 — evaluated branch
 
+# --- Week 3 ---
+PRED_WMH = "pred_wmh"  # the predicted lesion mask (R4) — what Week 4 measures
+                       # and what Week 7 scores against the official leaderboard
+
 
 # Where each artefact lives. The split is by ROLE, not by the stage that made
 # it: `data/processed/` holds only what a later week actually consumes, and
@@ -79,6 +83,7 @@ ARTEFACT_ROOTS = {
     BRAIN_MASK: DATA_PROCESSED,  # R1 — consumed by W3 and W4
     WM_MASK: DATA_PROCESSED,  # consumed by W3 (FP removal) and W4 (deep WMH)
     FLAIR_NORM: DATA_PROCESSED,  # R2 — the image W3 actually segments
+    PRED_WMH: DATA_PROCESSED,  # R4 — consumed by W4 (features) and W7 (scoring)
 }
 
 

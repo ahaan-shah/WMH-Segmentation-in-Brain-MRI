@@ -425,16 +425,23 @@ def test_dilation_of_zero_is_a_no_op():
 # ---------------------------------------------------------------------------
 
 
-def test_only_week3_inputs_live_in_processed():
-    """`data/processed/` is the Week 2 deliverable and must contain exactly the
-    files a later week opens — not everything Week 2 happened to produce."""
+def test_only_deliverables_live_in_processed():
+    """`data/processed/` must contain exactly the files a later week opens —
+    not everything a stage happened to produce.
+
+    This list is pinned deliberately. Adding an artefact here should be a
+    conscious decision about whether it is a deliverable or scaffolding, and
+    this test failing is the prompt to make that decision rather than an
+    inconvenience to be loosened. Week 3 added `pred_wmh` — the predicted lesion
+    mask, which Week 4 measures features from and Week 7 scores."""
     from metadata.config import DATA_INTERIM, DATA_PROCESSED
     from metadata.derived import (
-        ARTEFACT_ROOTS, BIAS_FIELD, BRAIN_MASK, FLAIR_N4, FLAIR_NORM, HEAD_MASK, WM_MASK,
+        ARTEFACT_ROOTS, BIAS_FIELD, BRAIN_MASK, FLAIR_N4, FLAIR_NORM, HEAD_MASK,
+        PRED_WMH, WM_MASK,
     )
 
     deliverables = {name for name, root in ARTEFACT_ROOTS.items() if root == DATA_PROCESSED}
-    assert deliverables == {BRAIN_MASK, WM_MASK, FLAIR_NORM}
+    assert deliverables == {BRAIN_MASK, WM_MASK, FLAIR_NORM, PRED_WMH}
 
     for scaffolding in (HEAD_MASK, FLAIR_N4, BIAS_FIELD):
         assert ARTEFACT_ROOTS[scaffolding] == DATA_INTERIM
