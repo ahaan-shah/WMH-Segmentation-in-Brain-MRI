@@ -605,3 +605,151 @@ def test_normalise_rejects_unknown_method_and_bad_input():
     broken[0, 0, 0] = np.inf
     with pytest.raises(ValueError, match="NaN or Inf"):
         normalise(broken, brain, method="z_score")
+
+
+# ---------------------------------------------------------------------------
+# Stages 6 and 7 — filtering branches and morphological operators
+# ---------------------------------------------------------------------------
+
+
+def _contrast_phantom(lesion_value=2.0):
+    """Normalised-scale phantom: white matter at 1.0, lesions above it.
+
+    Lesions are placed relative to the brain's own centroid and the placement is
+    asserted, rather than hard-coded at indices that happen to fall outside the
+    brain — which is exactly the mistake that made an earlier version of this
+    phantom silently test something other than what it claimed.
+    """
+    head, brain = _head_and_brain()
+    image = np.zeros(head.shape, dtype=float)
+    image[brain] = 1.0
+
+    cx, cy, cz = (int(round(c)) for c in ndi.center_of_mass(brain))
+    lesion = np.zeros_like(brain)
+    lesion[cx - 6, cy - 6, cz] = True                          # 1 voxel
+    lesion[cx - 3:cx - 1, cy - 3:cy - 1, cz] = True            # 4 voxels
+    lesion[cx + 1:cx + 6, cy + 1:cy + 6, cz - 1:cz + 1] = True  # 50 voxels
+
+    assert (lesion & ~brain).sum() == 0, "phantom lesions must lie inside the brain"
+    sizes = sorted(np.bincount(ndi.label(lesion, structure=np.ones((3, 3, 3)))[0].ravel())[1:])
+    assert sizes == [1, 4, 50], f"phantom lesion sizes drifted: {sizes}"
+
+    image[lesion] = lesion_value
+    return image, brain, lesion
+
+
+def test_contrast_retention_is_one_when_nothing_changes():
+    from preprocessing.denoise import lesion_contrast_retention
+
+    image, _, lesion = _contrast_phantom()
+    result = lesion_contrast_retention(image, image, lesion)
+    assert result["retention_mean"] == pytest.approx(1.0)
+    assert result["lesions_below_half_retention"] == 0
+
+
+def test_contrast_retention_is_zero_when_lesions_are_erased():
+    from preprocessing.denoise import lesion_contrast_retention
+
+    image, brain, lesion = _contrast_phantom()
+    flattened = np.where(brain, 1.0, 0.0)  # every lesion smoothed into white matter
+    result = lesion_contrast_retention(image, flattened, lesion)
+    assert result["retention_mean"] == pytest.approx(0.0)
+    assert result["fraction_below_half_retention"] == pytest.approx(1.0)
+
+
+def test_small_lesions_are_reported_separately_from_large_ones():
+    """The entire Stage 6 question is whether SMALL lesions survive, so the
+    metric must not let large ones mask their loss."""
+    from preprocessing.denoise import lesion_contrast_retention
+
+    image, brain, lesion = _contrast_phantom()
+    damaged = image.copy()
+    labelled, n = ndi.label(lesion, structure=np.ones((3, 3, 3)))
+    sizes = np.bincount(labelled.ravel())[1:]
+    for index in range(1, n + 1):
+        if sizes[index - 1] <= 10:            # erase only the small ones
+            damaged[labelled == index] = 1.0
+
+    result = lesion_contrast_retention(damaged * 0 + damaged, image, lesion) if False else \
+        lesion_contrast_retention(image, damaged, lesion)
+    assert result["retention_small"] == pytest.approx(0.0)
+    assert result["retention_mean"] > 0.0, "large lesions should still be intact"
+
+
+def test_ssim_can_be_high_while_lesions_are_destroyed():
+    """Encodes the Stage 6 finding: SSIM is not a safe proxy for lesion damage.
+    Measured on real data, anisotropic diffusion scores SSIM 0.981 while small
+    lesions keep only 66% of their contrast."""
+    from preprocessing.denoise import lesion_contrast_retention, structural_similarity_in_mask
+
+    image, brain, lesion = _contrast_phantom()
+    damaged = image.copy()
+    damaged[lesion] = 1.0  # every lesion gone
+
+    ssim = structural_similarity_in_mask(image, damaged, brain)
+    retention = lesion_contrast_retention(image, damaged, lesion)["retention_mean"]
+
+    # The bound is 0.85 rather than 0.95 only because this phantom's lesions are
+    # ~4.8% of brain volume, roughly ten times the real ~0.5%. On the actual data
+    # the effect is far stronger, not weaker: anisotropic diffusion scores
+    # SSIM 0.981 while small lesions keep only 66% of their contrast.
+    assert ssim > 0.85, "SSIM stays high because lesions are a small fraction of the volume"
+    assert retention == pytest.approx(0.0), "...while every lesion has in fact been erased"
+
+
+def test_minimum_size_cost_separates_count_loss_from_volume_loss():
+    """The divergence between these two columns is the reason a size filter can
+    look harmless on Dice while gutting lesion F1."""
+    from preprocessing.morphology import minimum_size_cost
+
+    _, _, lesion = _contrast_phantom()
+    rows = {r["minimum_voxels"]: r for r in minimum_size_cost(lesion, 3.0, (2, 5))}
+    at_five = rows[5]
+    # 2 of 3 lesions deleted (66.7%) but only 5 of 55 voxels (9.1%) — the same
+    # order-of-magnitude divergence measured on the real data.
+    assert at_five["lesion_count_fraction_removed"] == pytest.approx(2 / 3)
+    assert at_five["volume_fraction_removed"] == pytest.approx(5 / 55)
+    assert at_five["lesion_count_fraction_removed"] > at_five["volume_fraction_removed"] * 5
+
+
+def test_remove_small_components_reports_what_it_deleted():
+    from preprocessing.morphology import remove_small_components
+
+    _, _, lesion = _contrast_phantom()
+    filtered, info = remove_small_components(lesion, 5)
+    assert info["components_before"] == 3
+    assert info["components_removed"] == 2      # the 1-voxel and 4-voxel lesions
+    assert info["voxels_removed"] == 5
+    assert filtered.sum() == lesion.sum() - 5
+
+
+def test_remove_small_components_is_a_no_op_below_two():
+    from preprocessing.morphology import remove_small_components
+
+    _, _, lesion = _contrast_phantom()
+    filtered, _ = remove_small_components(lesion, 1)
+    np.testing.assert_array_equal(filtered, lesion)
+
+
+def test_six_and_twentysix_connectivity_disagree_on_lesion_counts():
+    """Week 4 reports both; 26 is the project default matching evaluation.py."""
+    from preprocessing.morphology import CONNECTIVITY_6, CONNECTIVITY_26
+
+    mask = np.zeros((12, 12, 4), dtype=bool)
+    mask[3, 3, 1] = True
+    mask[4, 4, 1] = True  # corner-touching only
+    assert ndi.label(mask, structure=CONNECTIVITY_6)[1] == 2
+    assert ndi.label(mask, structure=CONNECTIVITY_26)[1] == 1
+
+
+def test_morphology_operators_are_all_in_plane():
+    from preprocessing.morphology import close_in_plane, erode_in_plane, open_in_plane
+
+    spacing = (1.0, 1.0, 3.0)
+    mask = np.zeros((20, 20, 5), dtype=bool)
+    mask[8:13, 8:13, 2] = True  # a single-slice block
+    for operator in (erode_in_plane, open_in_plane, close_in_plane):
+        result = operator(mask, 1.0, spacing)
+        assert not result[:, :, 1].any() and not result[:, :, 3].any(), (
+            f"{operator.__name__} reached across a 3 mm slice boundary"
+        )
