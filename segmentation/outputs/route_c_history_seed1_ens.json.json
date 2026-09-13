@@ -1,0 +1,187 @@
+{
+  "generating_script": "segmentation/train_unet.py",
+  "git_commit": "ab3d801607dae03c1119996bce474bb87b4daf4d-dirty",
+  "timestamp_utc": "2026-09-13T15:42:53.160900+00:00",
+  "config": {
+    "seed": 42,
+    "labels": {
+      "background": 0,
+      "wmh": 1,
+      "other": 2
+    },
+    "working_space": "flair",
+    "periventricular": {
+      "threshold_mm": 10.0,
+      "sensitivity_thresholds_mm": [
+        5.0,
+        10.0,
+        15.0
+      ],
+      "distance_metric": "euclidean_mm"
+    },
+    "largest_lesion_diameter": {
+      "definition": "equivalent_sphere_diameter"
+    },
+    "spatial_distribution": {
+      "primary_reference_frame": "hemisphere",
+      "stretch_reference_frame": "lobe"
+    },
+    "dicom": {
+      "required": false,
+      "decision": "Instructor confirmed NIfTI-only is acceptable (2026-08-16)."
+    },
+    "ssim_role": "preprocessing_quality",
+    "voxel_spacing_policy": "stored_never_inferred",
+    "splits": {
+      "test_set": "official_110",
+      "train_val_subjects": 60,
+      "train_fraction": 0.8,
+      "val_fraction": 0.2,
+      "stratify_by": "site",
+      "sites": [
+        "Utrecht",
+        "Singapore",
+        "Amsterdam"
+      ]
+    },
+    "ventricle_segmentation": {
+      "method": "flair_intensity_threshold"
+    },
+    "severity_classification": {
+      "candidate_routes": [
+        "tertiles",
+        "fazekas_anchored",
+        "regression_then_threshold"
+      ],
+      "recommended_route": "regression_then_threshold",
+      "min_subjects_per_class": 8
+    },
+    "evaluation": {
+      "vendored_script": "checks/evaluation.py",
+      "source": "https://github.com/hjkuijf/wmhchallenge (raw, branch master)",
+      "metrics": [
+        "dice",
+        "hausdorff95_mm",
+        "avd_percent",
+        "lesion_recall",
+        "lesion_f1"
+      ],
+      "label2_handling": "Ground-truth image is thresholded to WMH==1 only. Label-2 voxels are used to build a mask that is applied to the RESULT (prediction) image only, zeroing out any predicted-positive voxels that fall in a label-2 region before scoring. Net effect: label-2 regions are \"don't care\" \u2014 a prediction there is neither a true positive nor a false positive.\n"
+    },
+    "preprocessing": {
+      "geometry_tolerance_mm": 0.001,
+      "working_orientation": "RAS",
+      "storage_orientation": "native",
+      "head_mask": {
+        "threshold_method": "multiotsu_3class_lowest",
+        "threshold_classes": 3,
+        "opening_radius_mm": 1.0,
+        "closing_radius_mm": 3.0,
+        "in_plane_only": true,
+        "largest_component_only": true,
+        "min_wmh_retained_fraction": 1.0
+      },
+      "n4": {
+        "shrink_factor": [
+          2,
+          2,
+          1
+        ],
+        "iterations_per_level": 50,
+        "convergence_threshold": 1e-06,
+        "candidate_fitting_levels": [
+          2,
+          3,
+          4
+        ],
+        "selected_fitting_levels": 2,
+        "selection_metric": "lesion_wm_cnr_change_and_field_span",
+        "selection_split": "train",
+        "known_metric_caveat": "The CNR metric conflates two effects: genuine contrast gain from flattening the field (which also shrinks the within-ROI spread used as the noise estimate) and loss from lesion absorption. That is why the independent bias-in-lesion/bias-in-NAWM ratio is reported alongside it \u2014 the two agree on 2 levels, which is what makes the choice trustworthy.\n"
+      },
+      "skull_strip": {
+        "candidates": [
+          "hdbet_flair",
+          "hdbet_t1",
+          "deepbet_flair",
+          "deepbet_t1"
+        ],
+        "selected": "hdbet_flair",
+        "t1_transfer_dilation_voxels": 1,
+        "min_wmh_retained_fraction": 0.999,
+        "scalp_rejection_check": true,
+        "shallow_depth_mm": 5.0,
+        "bright_percentile": 99.0,
+        "selection_rule": "Gate 1 (hard): reject any configuration losing reference WMH voxels on any subject. Gate 2: among survivors take the lowest mean shallow_fraction. Tie-break on tighter brain mask, then runtime. Gate 1 is a hard gate rather than a scored quantity because the two failures are not symmetric \u2014 retained scalp can still be removed by the white-matter constraint in Week 3, but a lesion deleted at Stage 3 is permanently gone from the pipeline.\n",
+        "selection_n_per_site": 4
+      },
+      "tissue_segmentation": {
+        "input": "t1",
+        "candidates": [
+          "sitk_kmeans",
+          "sklearn_gmm"
+        ],
+        "n_classes": 3,
+        "selected": "sitk_kmeans",
+        "bias_correct_input": true,
+        "wm_mask_derivation": "filled_wm_class",
+        "plausible_fractions": {
+          "csf": [
+            0.05,
+            0.4
+          ],
+          "gm": [
+            0.25,
+            0.6
+          ],
+          "wm": [
+            0.2,
+            0.55
+          ]
+        }
+      },
+      "normalisation": {
+        "primary": "wm_referenced",
+        "comparators": [
+          "z_score",
+          "percentile"
+        ],
+        "wm_reference_value": 1.0,
+        "percentile_range": [
+          1,
+          99
+        ],
+        "per_subject": true,
+        "selection_metric": "cross_site_cov_and_threshold_margin",
+        "verified_nawm_at_exactly_1": true
+      },
+      "denoising": {
+        "enabled_in_pipeline": false,
+        "candidates": [
+          "curvature_anisotropic_diffusion",
+          "gaussian",
+          "patch_based"
+        ],
+        "small_lesion_voxel_threshold": 10,
+        "minimum_small_lesion_retention": 0.95,
+        "patch_based_excluded_reason": "Implemented in denoise.py but excluded from the sweep on cost. Timed on a single subject it had not finished after 18 minutes, i.e. >18 h for the 60 and >33 h more for the 110 in Week 7, for a branch already expected to be rejected and whose two cheaper relatives both failed decisively.\n",
+        "selection_metric": "small_lesion_contrast_retention_and_cnr",
+        "gaussian_sigma_mm": 1.0,
+        "persist_outputs": true
+      },
+      "contrast_enhancement": {
+        "method": "clahe",
+        "enabled_in_pipeline": false,
+        "clip_limit": 0.01,
+        "kernel_size_fraction": 0.125,
+        "apply_in_plane_only": true
+      },
+      "morphology": {
+        "implemented_in_week": 2,
+        "applied_in_week": 3,
+        "connectivity": 26,
+        "min_lesion_size_voxels": null
+      }
+    }
+  }
+}
