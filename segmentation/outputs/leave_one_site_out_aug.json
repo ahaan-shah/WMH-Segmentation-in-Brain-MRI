@@ -1,0 +1,41 @@
+{
+  "args": {
+    "epochs": 80,
+    "batch_size": 16,
+    "lr": 0.001,
+    "seed": 42,
+    "sites": [
+      "Amsterdam",
+      "Singapore",
+      "Utrecht"
+    ],
+    "augment_strength": 1.0,
+    "tag": "aug"
+  },
+  "results": [
+    {
+      "held_out_site": "Amsterdam",
+      "dice": 0.779181834499089,
+      "best_epoch": 80,
+      "n_train": 40,
+      "n_test": 20,
+      "minutes": 71.88052992026012
+    },
+    {
+      "held_out_site": "Singapore",
+      "dice": 0.7981017714508258,
+      "best_epoch": 80,
+      "n_train": 40,
+      "n_test": 20,
+      "minutes": 73.06121354500452
+    },
+    {
+      "held_out_site": "Utrecht",
+      "dice": 0.7612435812458075,
+      "best_epoch": 60,
+      "n_train": 40,
+      "n_test": 20,
+      "minutes": 73.25931692123413
+    }
+  ]
+}

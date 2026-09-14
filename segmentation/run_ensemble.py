@@ -47,18 +47,36 @@ QC_CSV = OUTPUTS_DIR / "ensemble_scores.csv"
 
 
 def load_members(device, logger) -> list:
-    paths = sorted(CHECKPOINT_DIR.glob("unet_seed*.pt"))
+    """Load every FINISHED ensemble member.
+
+    `*.resume.pt` files are excluded deliberately. They are mid-training state
+    written once per epoch for crash recovery, and their names end in `.pt`, so
+    a plain `unet_seed*.pt` glob sweeps them up as though they were trained
+    models — quietly adding a half-trained duplicate of a seed to the vote while
+    training is still running. That is exactly the failure CLAUDE.md 5.2 is
+    about: it would not crash, it would just return a slightly wrong number.
+    """
+    paths = sorted(p for p in CHECKPOINT_DIR.glob("unet_seed*.pt")
+                   if not p.name.endswith(".resume.pt"))
     if not paths:
-        raise SystemExit(f"no checkpoints in {CHECKPOINT_DIR}")
+        raise SystemExit(f"no finished checkpoints in {CHECKPOINT_DIR}")
+
     members = []
     for path in paths:
         checkpoint = torch.load(path, map_location=device, weights_only=False)
+        missing = {"model", "epoch", "val_dice"} - set(checkpoint)
+        if missing:
+            raise SystemExit(
+                f"{path.name} is missing {sorted(missing)} — this is not a finished "
+                f"member. Refusing to ensemble it rather than guessing.")
         model = UNet(in_channels=2).to(device)
         model.load_state_dict(checkpoint["model"])
         model.eval()
         members.append(model)
         logger.info("  %-24s epoch %3d, individual val Dice %.4f",
                     path.name, checkpoint["epoch"], checkpoint["val_dice"])
+
+    logger.info("ensembling %d member(s) — every one a completed run", len(members))
     return members
 
 
@@ -148,13 +166,20 @@ def main() -> None:
                 {k: (round(v, 4) if isinstance(v, float) else v)
                  for k, v in aggregate(table.to_dict("records")).items()})
 
-    best_single = 0.8056
-    gain = held_out["dice"].mean() - best_single
-    logger.info("COMPARISON on held-out subjects:")
-    logger.info("    simple threshold baseline (Route A) : 0.4291")
-    logger.info("    single U-Net (best member, seed 42) : %.4f", best_single)
-    logger.info("    ensemble of %d + TTA                 : %.4f  (%+.4f vs single)",
-                len(members), held_out["dice"].mean(), gain)
+    # NOTE: 0.8056 is the WEEK 3 single U-Net trained WITHOUT scanner
+    # augmentation. Comparing the augmented ensemble against it mixes two
+    # separate changes and answers neither question — it previously printed a
+    # "the ensemble did not help" warning that was an artefact of that mix-up.
+    # `segmentation/compare_ensemble.py` separates the effects properly by
+    # scoring every configuration the same way; read that, not this line.
+    week3_single_no_aug = 0.8056
+    logger.info("COMPARISON on held-out subjects (reference points, NOT a controlled test):")
+    logger.info("    simple threshold baseline (Route A)      : 0.4291")
+    logger.info("    Week 3 single U-Net, NO augmentation     : %.4f", week3_single_no_aug)
+    logger.info("    this ensemble of %d + TTA                 : %.4f",
+                len(members), held_out["dice"].mean())
+    logger.info("    For the augmentation / ensembling / TTA contributions measured "
+                "separately, run: python -m segmentation.compare_ensemble")
     if gain <= 0:
         logger.warning("The ensemble did not beat the best single model. That is a real "
                        "result, not a bug — report it rather than quietly keeping the "

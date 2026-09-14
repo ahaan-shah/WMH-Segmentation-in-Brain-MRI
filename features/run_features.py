@@ -32,13 +32,16 @@ import argparse
 import numpy as np
 import pandas as pd
 
-from metadata.config import PROJECT_ROOT
-from metadata.derived import BRAIN_MASK, PRED_WMH, derived_exists, load_derived_mask
+from metadata.config import (PERIVENTRICULAR_SENSITIVITY_THRESHOLDS_MM,
+                             PERIVENTRICULAR_THRESHOLD_MM, PROJECT_ROOT)
+from metadata.derived import (BRAIN_MASK, PRED_WMH, VENTRICLES, derived_exists,
+                             load_derived_mask)
 from metadata.geometry import voxel_volume_mm3
 from metadata.loader import load_nifti, load_split, load_wmh_mask, subjects_by_key
 from metadata.provenance import write_manifest
 from metadata.runlog import setup_logging
 from features.lesion_features import extract_features
+from features.periventricular import summarise as periventricular_summary
 
 SCRIPT_NAME = "run_features"
 OUTPUTS_DIR = PROJECT_ROOT / "features" / "outputs"
@@ -56,8 +59,13 @@ def main() -> None:
 
     subjects = subjects_by_key()
     keys = [key for split in args.splits for key in load_split(split)]
-    logger.info("extracting R6-R9 features for %d subjects, from BOTH the reference "
+    thresholds = tuple(PERIVENTRICULAR_SENSITIVITY_THRESHOLDS_MM)
+    primary = float(PERIVENTRICULAR_THRESHOLD_MM)
+    logger.info("extracting R5-R9 features for %d subjects, from BOTH the reference "
                 "and the prediction", len(keys))
+    logger.info("R5 split at %.0f mm (DeCarli 2005), sensitivity also at %s mm",
+                primary, list(thresholds))
+    missing_ventricles = []
 
     rows = []
     missing_predictions = []
@@ -67,22 +75,38 @@ def main() -> None:
         affine, voxel_volume = image.affine, voxel_volume_mm3(image)
         brain = load_derived_mask(key, BRAIN_MASK)
 
+        spacing = np.abs(np.diag(affine))[:3]
+        ventricles = (load_derived_mask(key, VENTRICLES)
+                      if derived_exists(key, VENTRICLES) else None)
+        if ventricles is None:
+            missing_ventricles.append(key)
+
+        def with_r5(mask, source):
+            """R6-R9 plus, where a ventricle mask exists, R5."""
+            row = {"subject_key": key, "split": subject.split, "site": subject.site,
+                   **extract_features(mask, affine, voxel_volume,
+                                      brain_mask=brain, source=source)}
+            if ventricles is not None and mask.any():
+                row.update(periventricular_summary(
+                    mask, ventricles, spacing,
+                    thresholds_mm=thresholds, primary_mm=primary))
+            return row
+
         reference = load_wmh_mask(subject.mask_path)
-        rows.append({"subject_key": key, "split": subject.split, "site": subject.site,
-                     **extract_features(reference, affine, voxel_volume,
-                                        brain_mask=brain, source="reference")})
+        rows.append(with_r5(reference, "reference"))
 
         if derived_exists(key, PRED_WMH):
-            prediction = load_derived_mask(key, PRED_WMH)
-            rows.append({"subject_key": key, "split": subject.split, "site": subject.site,
-                         **extract_features(prediction, affine, voxel_volume,
-                                            brain_mask=brain, source="prediction")})
+            rows.append(with_r5(load_derived_mask(key, PRED_WMH), "prediction"))
         else:
             missing_predictions.append(key)
 
         if index % 15 == 0 or index == len(keys):
             logger.info("  %d/%d", index, len(keys))
 
+    if missing_ventricles:
+        logger.warning("no ventricle mask for %d subject(s) — R5 columns blank for them. "
+                       "Run: python -m features.run_synthseg",
+                       len(missing_ventricles))
     if missing_predictions:
         logger.warning("no prediction found for %d subject(s) — reference features only: %s",
                        len(missing_predictions), missing_predictions[:5])
@@ -90,9 +114,11 @@ def main() -> None:
     table = pd.DataFrame(rows)
     table.to_csv(FEATURES_CSV, index=False)
     write_manifest(FEATURES_CSV, generating_script=f"features/{SCRIPT_NAME}.py",
-                   extra={"note": "R5 periventricular/deep columns pending ventricle "
-                                  "segmentation; prediction features must be regenerated "
-                                  "if the segmentation model changes."})
+                   extra={"note": "R5-R9. Prediction-side features must be regenerated "
+                                  "if the segmentation model changes.",
+                          "r5_primary_mm": primary,
+                          "r5_sensitivity_mm": list(thresholds),
+                          "r5_source": "SynthSeg on raw T1 (selected by sweep)"})
     logger.info("wrote %s (%d rows)", FEATURES_CSV, len(table))
 
     pd.set_option("display.width", 250)

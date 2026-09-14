@@ -1,0 +1,39 @@
+{
+  "args": {
+    "epochs": 80,
+    "batch_size": 16,
+    "lr": 0.001,
+    "seed": 42,
+    "sites": [
+      "Amsterdam",
+      "Singapore",
+      "Utrecht"
+    ]
+  },
+  "results": [
+    {
+      "held_out_site": "Amsterdam",
+      "dice": 0.7710666952873562,
+      "best_epoch": 80,
+      "n_train": 40,
+      "n_test": 20,
+      "minutes": 71.70758562882742
+    },
+    {
+      "held_out_site": "Singapore",
+      "dice": 0.688079676280869,
+      "best_epoch": 60,
+      "n_train": 40,
+      "n_test": 20,
+      "minutes": 72.25701702833176
+    },
+    {
+      "held_out_site": "Utrecht",
+      "dice": 0.7555577437900085,
+      "best_epoch": 70,
+      "n_train": 40,
+      "n_test": 20,
+      "minutes": 72.3413724819819
+    }
+  ]
+}

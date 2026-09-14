@@ -1,0 +1,11 @@
+config,members,tta,dice
+unet_seed1_aug,1,False,0.8003722918444912
+unet_seed1_aug,1,True,0.7986311983963562
+unet_seed2_aug,1,False,0.7982589293857393
+unet_seed2_aug,1,True,0.8019228741743673
+unet_seed3_aug,1,False,0.7983140602134888
+unet_seed3_aug,1,True,0.7991154636087204
+unet_seed42_aug,1,False,0.7922081320669575
+unet_seed42_aug,1,True,0.7919861353725918
+ensemble_4,4,False,0.8028619527963811
+ensemble_4,4,True,0.8038419411312602

@@ -1,0 +1,10 @@
+subject_key,site,input,failed,geometry_ok,lateral_ml,inferior_lateral_ml,third_fourth_ml,plausible,seconds,shape_match
+training_Amsterdam_GE3T_101,Amsterdam,raw_T1,True,,,,,,,
+training_Amsterdam_GE3T_101,Amsterdam,raw_FLAIR,False,False,56.1,1.93,4.0,True,77.7,True
+training_Amsterdam_GE3T_101,Amsterdam,flair_norm,False,False,56.12,1.85,4.02,True,86.9,True
+training_Singapore_Singapore_50,Singapore,raw_T1,False,False,25.76,1.24,4.3,True,76.9,True
+training_Singapore_Singapore_50,Singapore,raw_FLAIR,False,False,24.24,1.25,3.31,True,115.3,True
+training_Singapore_Singapore_50,Singapore,flair_norm,True,,,,,,,
+training_Utrecht_Utrecht_0,Utrecht,raw_T1,False,False,128.11,4.35,5.46,True,75.6,True
+training_Utrecht_Utrecht_0,Utrecht,raw_FLAIR,False,False,127.01,3.77,4.61,True,80.7,True
+training_Utrecht_Utrecht_0,Utrecht,flair_norm,False,False,122.54,3.88,4.1,True,84.2,True

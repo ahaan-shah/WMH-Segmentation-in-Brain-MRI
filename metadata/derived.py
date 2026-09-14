@@ -57,6 +57,11 @@ PRED_WMH = "pred_wmh"  # the predicted lesion mask (R4) — what Week 4 measures
                        # and what Week 7 scores against the official leaderboard
 
 
+# --- Week 4 ---
+VENTRICLES = "ventricles"  # SynthSeg lateral + inferior-lateral ventricles,
+                           # on the FLAIR grid. R5 measures distance from this.
+
+
 # Where each artefact lives. The split is by ROLE, not by the stage that made
 # it: `data/processed/` holds only what a later week actually consumes, and
 # `data/interim/` holds working files that exist to produce those.
@@ -84,6 +89,8 @@ ARTEFACT_ROOTS = {
     WM_MASK: DATA_PROCESSED,  # consumed by W3 (FP removal) and W4 (deep WMH)
     FLAIR_NORM: DATA_PROCESSED,  # R2 — the image W3 actually segments
     PRED_WMH: DATA_PROCESSED,  # R4 — consumed by W4 (features) and W7 (scoring)
+    VENTRICLES: DATA_PROCESSED,  # R5 — the reference structure the 10 mm rule
+                                 # measures from; consumed by W4 and W5-6
 }
 
 
@@ -176,7 +183,20 @@ def save_derived(
 
     out_path = derived_path(subject.subject_key, name)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    nib.save(out_img, out_path)
+
+    # Write to a sibling, then rename. Rename is atomic on any POSIX filesystem,
+    # so the file at `out_path` is either the previous complete version or the
+    # new complete one — never a half-written volume.
+    #
+    # This matters because of resume logic: drivers decide what to skip by asking
+    # whether the artefact already exists. A process killed partway through
+    # `nib.save` would otherwise leave a truncated file that still looks present,
+    # and the next run would skip it and carry corrupt data forward silently.
+    # A truncated mask still yields a distance transform and still yields
+    # numbers, which is what makes it dangerous rather than merely broken.
+    staging = out_path.with_name(out_path.name + ".partial")
+    nib.save(out_img, staging)
+    staging.replace(out_path)
 
     write_manifest(
         out_path,

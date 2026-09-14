@@ -1,0 +1,11 @@
+{
+  "week3_single_no_augmentation": 0.8056,
+  "best_augmented_single": 0.8019228741743673,
+  "best_augmented_single_name": "unet_seed2_aug",
+  "ensemble_with_tta": 0.8038419411312602,
+  "ensemble_without_tta": 0.8028619527963811,
+  "augmentation_effect": -0.003677125825632732,
+  "ensembling_effect": 0.001919066956892923,
+  "tta_effect": 0.0009799883348791116,
+  "n_held_out": 12
+}

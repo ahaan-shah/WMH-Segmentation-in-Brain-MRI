@@ -31,6 +31,68 @@ periventricular:
                                   # CLAUDE.md flags this as the single most likely
                                   # silent bug in the project (anisotropic FLAIR).
 
+  ventricle_source: synthseg_on_raw_t1
+  # DECIDED IN WEEK 4 BY MEASUREMENT — features/sweep_synthseg.py.
+  #
+  # Week 1 prototyped a FLAIR-darkness heuristic (Section 11.1, Fallback B)
+  # because neither FreeSurfer nor FSL was installed. Four such heuristics were
+  # later tried and all failed at roughly a 28% success rate; root cause was
+  # Week 2's CSF class being 314-439 mL (~25% of brain), validated for NAWM
+  # accuracy rather than CSF accuracy. FreeSurfer 8.2.0 was then installed,
+  # making SynthSeg available as originally preferred.
+  #
+  # WHICH IMAGE TO FEED IT was the open question. Three candidates, one subject
+  # per site, rule fixed before results were seen:
+  #   (a) geometry must match the FLAIR grid exactly  -- all three passed
+  #   (b) lateral ventricle volume within 5-150 mL    -- all three passed
+  #       (band deliberately wide: cohort is 70.1 +- 9.3 y WITH cerebrovascular
+  #        disease, so a "normal adult" 10-40 mL band would reject correct
+  #        segmentations on exactly the subjects this project is about)
+  #   (c) tiebreaker -- how much TRUE WMH the ventricle label absorbs, since
+  #       periventricular lesions sit against the ventricle wall and
+  #       contamination there corrupts the 10 mm split where it matters most:
+  #
+  #         raw T1        2.96%   <- SELECTED
+  #         flair_norm    4.79%
+  #         raw FLAIR     4.95%   (11.64% on Amsterdam alone -- disqualifying)
+  #
+  # T1 costs nothing extra: W1.8 established orig/T1.nii.gz already shares
+  # FLAIR's exact shape and affine, so no registration is involved.
+  #
+  # Cross-input agreement was strong (0.7-6% spread on ventricle volume), which
+  # is what confirmed Utrecht_0's unusually large 128 mL ventricle is genuine
+  # atrophy rather than a segmentation failure -- all three inputs independently
+  # landed within 5% of each other.
+  ventricle_labels: [4, 43, 5, 44]   # FreeSurfer lateral + inferior-lateral
+  # Inferior-lateral horns are included because they are continuous with the
+  # lateral ventricles; excluding them would open a false "deep" gap at the
+  # temporal horn.
+  measured_contamination_full_cohort:
+    mean_pct: 4.10
+    worst_pct: 16.61          # training_Amsterdam_GE3T_106
+    n_subjects: 60
+  # CORRECTION, recorded rather than quietly replaced. The 3-subject input sweep
+  # above measured 2.96% for raw T1; across all 60 the figure is 4.10%, with a
+  # worst case of 16.61%. n=3 understated it by ~40%.
+  #
+  # This is the THIRD time in this project a small probe has misled (Week 2: an
+  # n=1-per-site N4 probe named the wrong damaged site; an early crude-proxy
+  # normalisation comparison gave the wrong ranking). The standing lesson holds:
+  # probe to check feasibility, sweep to decide, and re-measure on the full
+  # cohort before quoting a number.
+  #
+  # It does NOT change the input decision: the T1-vs-FLAIR-vs-flair_norm
+  # comparison was made on identical subjects, so the ordering is unaffected,
+  # and FLAIR's disqualifying 11.64% on Amsterdam stands. Nor does it change the
+  # result, because the contamination is corrected per subject below rather than
+  # assumed small.
+  lesion_voxels_removed_from_ventricle_mask: true
+  # The residual 2.96% contamination is corrected rather than tolerated: a voxel
+  # cannot be both lesion and CSF, so lesion voxels are subtracted from the
+  # ventricle mask before the distance transform. Left uncorrected it biases the
+  # split twice -- those voxels vanish from the lesion set AND inflate the
+  # structure distance is measured from. features/periventricular.py.
+
 largest_lesion_diameter:
   definition: equivalent_sphere_diameter
   # Decision #8. Two candidate definitions: max Feret diameter (true geometric

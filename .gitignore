@@ -26,3 +26,12 @@ checks/outputs/
 # predate this rule — those were untracked with `git rm --cached` in the same
 # commit that added this line, and remain on disk.
 *.log
+
+# Model checkpoints (~30 MB each, 416 MB total).
+# Regenerable from committed code plus the frozen seed in metadata/config.py,
+# so they are local working files, not reproducibility artefacts. The training
+# HISTORY (route_c_history_*.json) and the SCORES (*_scores.csv) are committed —
+# those are the evidence; the weights are just the cache.
+segmentation/outputs/checkpoints/
+segmentation/outputs/checkpoints_preaug/
+*.pt

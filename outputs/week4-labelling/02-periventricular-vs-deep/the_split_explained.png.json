@@ -1,7 +1,7 @@
 {
-  "generating_script": "features/run_features.py",
+  "generating_script": "features/make_outputs.py",
   "git_commit": "63dce046adcdd134db8406e8e3fc6972425c3e62-dirty",
-  "timestamp_utc": "2026-09-14T13:27:31.717368+00:00",
+  "timestamp_utc": "2026-09-14T13:28:55.147171+00:00",
   "config": {
     "seed": 42,
     "labels": {
@@ -193,13 +193,6 @@
     }
   },
   "extra": {
-    "note": "R5-R9. Prediction-side features must be regenerated if the segmentation model changes.",
-    "r5_primary_mm": 10.0,
-    "r5_sensitivity_mm": [
-      5.0,
-      10.0,
-      15.0
-    ],
-    "r5_source": "SynthSeg on raw T1 (selected by sweep)"
+    "commit": "63dce046adcdd134db8406e8e3fc6972425c3e62-dirty"
   }
 }

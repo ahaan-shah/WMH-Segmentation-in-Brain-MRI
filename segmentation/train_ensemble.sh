@@ -17,6 +17,17 @@
 # get hot, rather than pushing a laptop through six unattended hours at the
 # limit.
 #
+# CRASH-SAFE. Each member saves its full training state every epoch and is
+# started with --resume, so re-running this script after an interruption picks
+# each member up where it stopped instead of restarting it. This exists because
+# the machine hard-powered-off at 11:58 on 2026-09-14, 71 epochs into seed 1,
+# with no thermal, OOM or battery cause in the journal — so it can happen again
+# and the only defence is making it cheap.
+#
+# Members that already finished are NOT skipped automatically — a completed run
+# deletes its own resume state, so re-running a finished seed retrains it from
+# scratch. Pass only the seeds you still need.
+#
 #   bash segmentation/train_ensemble.sh 1 2 3        # three more seeds
 #
 set -uo pipefail
@@ -49,7 +60,8 @@ for seed in "$@"; do
   fi
 
   say "--- seed ${seed} starting (GPU ${temp}C) ---"
-  $PYTHON -m segmentation.train_unet --epochs 80 --seed "$seed" --tag ens >>"$LOG" 2>&1
+  $PYTHON -m segmentation.train_unet --epochs 80 --seed "$seed" --resume \
+    --augment-strength "${AUG_STRENGTH:-1.0}" --tag "${TAG:-aug}" >>"$LOG" 2>&1
   status=$?
   say "--- seed ${seed} finished (exit ${status}, GPU $(gpu_temp)C) ---"
 

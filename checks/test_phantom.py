@@ -234,3 +234,103 @@ def test_laterality_index_sign_is_left_minus_right():
     features = extract_features(left_blob, phantom.affine, phantom.voxel_volume_mm3,
                                 brain_mask=brain, source="phantom")
     assert features["laterality_index"] == pytest.approx(1.0)
+
+
+# ---------------------------------------------------------------------------
+# R5 — the same geometry, but exercising features/periventricular.py itself.
+#
+# The three tests above prove the 10 mm rule is computable correctly, but they
+# call distance_transform_edt inline, so they test scipy rather than this
+# project. These call the real function Week 4 ships, so a regression in it
+# fails the suite.
+# ---------------------------------------------------------------------------
+
+def test_real_split_function_labels_both_blobs_correctly():
+    from features.periventricular import split_periventricular_deep
+
+    phantom = build_phantom()
+    lesions = np.zeros(phantom.shape, dtype=bool)
+    for name in ("periventricular", "deep"):
+        lesions[phantom.blobs[name].voxel_slice] = True
+
+    result = split_periventricular_deep(lesions, phantom.ventricle_mask,
+                                        phantom.spacing, threshold_mm=10.0)
+
+    pv_expected = np.zeros(phantom.shape, dtype=bool)
+    pv_expected[phantom.blobs["periventricular"].voxel_slice] = True
+    deep_expected = np.zeros(phantom.shape, dtype=bool)
+    deep_expected[phantom.blobs["deep"].voxel_slice] = True
+
+    assert np.array_equal(result["periventricular"], pv_expected)
+    assert np.array_equal(result["deep"], deep_expected)
+
+
+def test_real_split_conserves_every_lesion_voxel():
+    """No lesion voxel may be lost or counted twice by the split."""
+    from features.periventricular import split_periventricular_deep
+
+    phantom = build_phantom()
+    lesions = np.zeros(phantom.shape, dtype=bool)
+    for blob in phantom.blobs.values():
+        lesions[blob.voxel_slice] = True
+
+    result = split_periventricular_deep(lesions, phantom.ventricle_mask,
+                                        phantom.spacing)
+    assert not (result["periventricular"] & result["deep"]).any()
+    assert (result["periventricular"] | result["deep"]).sum() == lesions.sum()
+
+
+def test_lesion_touching_the_ventricle_is_kept_and_called_periventricular():
+    """A confluent lesion continuous with the ventricle must survive.
+
+    This is the Week 2 `wm_mask` failure in a new guise: confluent
+    periventricular lesions are contiguous with the ventricle, and SynthSeg
+    assigns a measured mean 2.96% of true WMH to the ventricle label. If the
+    lesion were simply intersected away, the largest and most clinically
+    significant lesions would silently disappear from the very class they
+    define.
+    """
+    from features.periventricular import split_periventricular_deep
+
+    phantom = build_phantom()
+    # A lesion overlapping the ventricle wall: half inside the label, half out.
+    lesion = np.zeros(phantom.shape, dtype=bool)
+    ventricle_voxels = np.argwhere(phantom.ventricle_mask)
+    x, y, z = ventricle_voxels[len(ventricle_voxels) // 2]
+    lesion[x, y, z] = True          # inside the ventricle label
+    lesion[x + 1, y, z] = True      # just outside it
+
+    result = split_periventricular_deep(lesion, phantom.ventricle_mask,
+                                        phantom.spacing)
+
+    assert result["periventricular"].sum() + result["deep"].sum() == 2, \
+        "no lesion voxel may be dropped for overlapping the ventricle"
+    assert result["periventricular"].sum() == 2, \
+        "a lesion on the ventricle wall is periventricular by definition"
+    assert not result["ventricles_used"][x, y, z], \
+        "the lesion voxel must be removed from the ventricle mask, not kept as CSF"
+
+
+def test_empty_ventricle_mask_raises_rather_than_calling_everything_deep():
+    from features.periventricular import distance_to_ventricles_mm
+
+    phantom = build_phantom()
+    with pytest.raises(ValueError, match="empty ventricle mask"):
+        distance_to_ventricles_mm(np.zeros(phantom.shape, dtype=bool), phantom.spacing)
+
+
+def test_sensitivity_sweep_is_monotonic():
+    """More distance allowed can only ever move lesions INTO periventricular."""
+    from features.periventricular import summarise
+
+    phantom = build_phantom()
+    lesions = np.zeros(phantom.shape, dtype=bool)
+    for blob in phantom.blobs.values():
+        lesions[blob.voxel_slice] = True
+
+    out = summarise(lesions, phantom.ventricle_mask, phantom.spacing,
+                    thresholds_mm=(5.0, 10.0, 15.0), primary_mm=10.0)
+    at5 = out["periventricular_ml_at_5mm"]
+    at10 = out["periventricular_ml"]
+    at15 = out["periventricular_ml_at_15mm"]
+    assert at5 <= at10 <= at15

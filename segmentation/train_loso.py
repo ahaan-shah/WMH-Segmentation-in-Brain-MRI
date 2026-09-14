@@ -50,6 +50,7 @@ from metadata.loader import load_split, subjects_by_key
 from metadata.provenance import write_manifest
 from metadata.runlog import setup_logging
 from segmentation.dataset import build_split, load_subject_slices
+from segmentation.augment import augment_for_domain_generalisation
 from segmentation.train_unet import augment, set_determinism, validate
 from segmentation.unet import UNet, masked_dice_bce_loss
 
@@ -103,14 +104,19 @@ def run_one(held_out_site: str, args, logger) -> dict:
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimiser, T_max=args.epochs)
     generator = torch.Generator(device=device).manual_seed(args.seed)
 
-    checkpoint_path = CHECKPOINT_DIR / f"unet_loso_{held_out_site.lower()}.pt"
+    suffix = f"_{args.tag}" if args.tag else ""
+    checkpoint_path = CHECKPOINT_DIR / f"unet_loso_{held_out_site.lower()}{suffix}.pt"
     best, best_epoch, started = -1.0, -1, time.time()
 
     for epoch in range(1, args.epochs + 1):
         total, batches = 0.0, 0
         for images, labels, masks in loader:
             images, labels, masks = (images.to(device), labels.to(device), masks.to(device))
-            images, labels, masks = augment(images, labels, masks, generator)
+            if args.augment_strength > 0:
+                images, labels, masks = augment_for_domain_generalisation(
+                    images, labels, masks, generator, strength=args.augment_strength)
+            else:
+                images, labels, masks = augment(images, labels, masks, generator)
             optimiser.zero_grad(set_to_none=True)
             loss = masked_dice_bce_loss(model(images), labels, masks)
             loss.backward()
@@ -149,6 +155,10 @@ def main() -> None:
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--seed", type=int, default=SEED)
     parser.add_argument("--sites", nargs="+", default=list(SITES), choices=list(SITES))
+    parser.add_argument("--augment-strength", type=float, default=0.0,
+                        help="0 = Week 3 behaviour (flip + mild gain). >0 enables "
+                             "scanner-simulating augmentation at that strength.")
+    parser.add_argument("--tag", default="", help="suffix for checkpoints and results")
     args = parser.parse_args()
 
     OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -161,8 +171,9 @@ def main() -> None:
 
     results = [run_one(site, args, logger) for site in args.sites]
 
-    RESULTS_JSON.write_text(json.dumps({"args": vars(args), "results": results}, indent=2))
-    write_manifest(RESULTS_JSON, generating_script=f"segmentation/{SCRIPT_NAME}.py")
+    out = (OUTPUTS_DIR / f"leave_one_site_out_{args.tag}.json") if args.tag else RESULTS_JSON
+    out.write_text(json.dumps({"args": vars(args), "results": results}, indent=2))
+    write_manifest(out, generating_script=f"segmentation/{SCRIPT_NAME}.py")
 
     mean = float(np.mean([r["dice"] for r in results]))
     logger.info("=" * 70)
