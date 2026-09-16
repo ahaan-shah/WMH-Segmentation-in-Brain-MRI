@@ -5,20 +5,10 @@ label values, or thresholds (CLAUDE.md Section 5.5). The values themselves —
 and the rationale behind each — live in dataset.yaml (this directory); this
 module just resolves paths and exposes both as plain Python constants/objects.
 
-Layout: metadata/ and checks/ are tracked, top-level directories, siblings of
-code/ and data/ — the parts of Week 1 the project actually depends on going
-forward (subject index, splits, the phantom test suite, the vendored
-scorer; checks/validate.py and checks/outputs/ are the exception, gitignored
-as Week-1-specific verification). `prototypes/`, `refs/`, and `reports/`
-stay organised together under the gitignored `prototyping-and-refs-week1/`
-scratch folder, one level deeper — not required by the instructor yet, and
-none of them are imported by anything in metadata/ or checks/. prototypes/
-DOES import from metadata/ (it reuses the same subject-discovery and config
-code), so each prototypes/*.py adds the true project root to sys.path itself
-before that import — see the top of any prototypes/*.py file for that
-handful of lines. This is the one place a path lives outside this file,
-because metadata/config.py can't be imported to compute a path used to find
-metadata/config.py in the first place.
+Layout: every importable package lives under code/ (see code/README.md). What
+sits at the project root is what a human reads — data/, the outputs/ gallery,
+reports/, deliverables/ — which is why this module resolves two separate roots
+rather than one.
 """
 
 from pathlib import Path
@@ -46,9 +36,6 @@ DATA_INTERIM = DATA_ROOT / "interim"
 DATA_PROCESSED = DATA_ROOT / "processed"
 
 CHECKS_OUTPUTS = CODE_ROOT / "checks" / "outputs"
-
-PROTOTYPES_OUTPUTS = PROJECT_ROOT / "prototyping-and-refs-week1" / "prototypes" / "outputs"
-PROTOTYPES_FIGURES = PROTOTYPES_OUTPUTS / "figures"
 
 METADATA_OUTPUTS = CODE_ROOT / "metadata" / "outputs"
 

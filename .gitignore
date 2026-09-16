@@ -5,7 +5,6 @@ data/
 code/.venv/
 .ipynb_checkpoints/
 .vscode/
-prototyping-and-refs-week1/
 __pycache__/
 .pytest_cache/
 
