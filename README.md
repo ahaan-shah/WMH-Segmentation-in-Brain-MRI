@@ -122,10 +122,23 @@ measures. Without it, the hidden-hospital score was only 0.738.
 For context: two human experts marking the same brain typically agree at
 **0.75–0.85**, and the challenge's winning entry scored **0.81**.
 
-Full metrics for the current model on the 12 held-out patients: Dice: **0.8038**
-lesion F1: **0.7623**
-Hausdorff-95 4.39 mm
-Absolute volume difference: 22.1%.
+### Full metrics — current model, 12 held-out patients
+
+All five are computed by the **official challenge scorer**, used unmodified, so
+they are directly comparable to the published leaderboard.
+
+| Metric | Value | What it measures | Better |
+|---|---|---|---|
+| **Dice** | **0.8038** | Overlap with the expert's mask; 1.0 means identical | higher |
+| Lesion recall | 0.7759 | Share of the expert's lesions we found at all | higher |
+| Lesion F1 | 0.7623 | Counts each lesion once, whatever its size | higher |
+| Hausdorff-95 | 4.39 mm | How far the boundary is off, ignoring the worst 5% | lower |
+| Absolute volume difference | 22.1% | Error in total lesion burden | lower |
+
+Dice and lesion F1 are reported together on purpose: Dice is volume-weighted, so
+a method that finds every large lesion and misses every small one still scores
+well. Half the lesions in this dataset are five voxels or smaller, and lesion F1
+is what keeps that visible.
 
 ---
 
