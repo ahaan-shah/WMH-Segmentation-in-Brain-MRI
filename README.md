@@ -128,8 +128,8 @@ Full metrics for the current model on the 12 held-out patients:
 |---|---|
 | Dice | **0.8038** |
 | Lesion F1 | **0.7623** |
-| Hausdorff-95 | 4.39 mm |
-| Absolute volume difference | 22.1% |
+| Hausdorff-95 | **4.39 mm** |
+| Absolute volume difference | **22.1%** |
 
 ---
 
