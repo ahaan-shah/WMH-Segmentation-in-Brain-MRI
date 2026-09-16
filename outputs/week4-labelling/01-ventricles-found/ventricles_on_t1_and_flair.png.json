@@ -1,7 +1,7 @@
 {
   "generating_script": "code/features/make_outputs.py",
-  "git_commit": "00195b42db47bcedbd7ece9f6b5d8a7d8772b4c4-dirty",
-  "timestamp_utc": "2026-09-16T11:27:24.307646+00:00",
+  "git_commit": "46b8eb2dcf48c965a578de89d2fc1b3267c77e3a-dirty",
+  "timestamp_utc": "2026-09-16T11:27:50.062841+00:00",
   "config": {
     "seed": 42,
     "labels": {
@@ -198,6 +198,6 @@
     }
   },
   "extra": {
-    "commit": "00195b42db47bcedbd7ece9f6b5d8a7d8772b4c4-dirty"
+    "commit": "46b8eb2dcf48c965a578de89d2fc1b3267c77e3a"
   }
 }
