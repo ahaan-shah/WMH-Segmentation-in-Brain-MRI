@@ -15,12 +15,10 @@ stroke risk and cognitive decline.
 
 The pipeline has to do five things end to end:
 
-1. **Pre-process** the scans — remove the skull, correct the scanner's uneven
-   lighting, put every hospital on one brightness scale
-2. **Segment** the lesions on FLAIR
-3. **Label** each lesion as *periventricular* (next to the ventricles) or *deep*
-   — they arise differently and carry different clinical weight
-4. **Measure** them — count, total burden, largest lesion size, spread across
+1. **Pre-processing** the scans — skull-stripping, bias-field correction and intensity normalization
+2. **Segmentation** of the lesions on FLAIR
+3. **Labelling** each lesion as *periventricular* or *deep*
+4. **Quantify** them — total count, total burden, largest lesion size, spread across
    hemispheres
 5. **Classify** patients as mild / moderate / severe *(bonus)*
 
@@ -53,8 +51,7 @@ Challenge** leaderboard.
 |---|---|
 | **Source / download** | [doi.org/10.34894/AECRSD](https://doi.org/10.34894/AECRSD) — DataverseNL |
 | **Licence** | CC BY-NC 4.0 (terms accepted at download) |
-| **Citation** | Kuijf, H. J. et al. *Standardized Assessment of Automatic Segmentation of White Matter Hyperintensities and Results of the WMH Segmentation Challenge.* IEEE Transactions on Medical Imaging **38**(11):2556–2568, 2019 · [doi:10.1109/TMI.2019.2905770](https://doi.org/10.1109/TMI.2019.2905770) |
-| **Challenge site** | [wmh.isi.uu.nl](https://wmh.isi.uu.nl/) — task description, evaluation protocol and leaderboard |
+| **Citation** | Kuijf, Hugo, Matthijs Biesbroek, Jeroen de Bresser, Rutger Heinen, Christopher Chen, Wiesje van der Flier, Barkhof, Max Viergever, and Geert Jan Biessels. 2022. “Data of the White Matter Hyperintensity (WMH) Segmentation Challenge.” DataverseNL. · [doi:10.1109/TMI.2019.2905770](https://doi.org/10.1109/TMI.2019.2905770) |
 | **Total subjects** | **170** (60 training + 110 sealed test) |
 | **Per subject** | FLAIR, T1, and an expert-drawn lesion mask |
 | **Cohort** | 70.1 ± 9.3 years, 50% male (cohort-level only; no per-subject demographics in the public release) |
@@ -95,18 +92,40 @@ Challenge** leaderboard.
 
 ## Where we stand
 
-| Method | Dice |
-|---|---|
-| Simple brightness cut-off *(baseline to beat)* | 0.429 |
-| Single neural network | 0.806 |
-| **Four networks + mirrored images ← current model** | **0.804** |
-| Same model, on a hospital it has never seen | 0.780 |
+| Method | Networks | Augmented | Tested on | Dice |
+|---|---|---|---|---|
+| Simple brightness cut-off *(baseline to beat)* | — | — | 12 held-out patients | 0.429 |
+| Single neural network | 1 | no | 12 held-out patients | 0.806 |
+| **Four networks + mirrored images ← current model** | **4, voted** | **yes** | **12 held-out patients** | **0.804** |
+| Same method, trained without one hospital and tested on it | 1 per run | yes | a hospital never seen | 0.780 |
+
+The top three rows are all tested on patients from the **same three hospitals**
+the models trained on. The last row is a deliberately harder test — train on two
+hospitals, hide the third, repeat three times — and it is our best estimate of
+how the model will perform in Week 7, where two of the five scanners are ones
+nobody has seen.
+
+**Why does the current model score slightly below the single network?** Three
+things changed at once between those rows, so they are not a like-for-like
+comparison. Measured one at a time on identical patients:
+
+| Change | On familiar scanners | On an unseen hospital |
+|---|---|---|
+| Scanner-simulating augmentation | −0.004 | **+0.041** |
+| Combining four networks | +0.002 | — |
+| Averaging in mirrored images | +0.001 | — |
+
+The small drop is entirely the cost of augmentation, and it buys roughly ten
+times as much on unfamiliar scanners — which is what the final evaluation
+measures. Without it, the hidden-hospital score was only 0.738.
 
 For context: two human experts marking the same brain typically agree at
 **0.75–0.85**, and the challenge's winning entry scored **0.81**.
 
-Full metrics on the 12 held-out patients: Dice **0.8038**, lesion F1 0.7623,
-Hausdorff-95 4.39 mm, absolute volume difference 22.1%.
+Full metrics for the current model on the 12 held-out patients: Dice: **0.8038**
+lesion F1: **0.7623**
+Hausdorff-95 4.39 mm
+Absolute volume difference: 22.1%.
 
 ---
 
@@ -167,15 +186,15 @@ the results were seen.
 - **Trained a 2D U-Net** — Dice **0.806**, nearly double the baseline
   - Two inputs: FLAIR *and* T1, because lesions are bright on FLAIR **and** dark
     on T1 — that combination is far more specific than either alone
-- **Combined four networks by voting** — Dice 0.808
+- **Combined four networks by voting** — Dice **0.808**
   - Only **+0.003**, which is within noise on 12 patients. Reported as the
     near-null result it was, and kept for robustness rather than for the number
 - **Then set a much harder exam** — train on two hospitals, hide the third
-  - Score dropped to **0.738**. The model was partly learning *what a scanner
+  - Dice dropped to **0.738**. The model was partly learning *what a scanner
     looks like* rather than *what a lesion looks like*
   - This is the failure the dataset was designed to expose, and we found it in
     Week 3 rather than at the end
-- **Fixed it with scanner-simulating augmentation** — back up to **0.780**
+- **Used Scanner-simulating augmentation** — Dice **0.780**
   - Show the network the same brain wearing different "scanner costumes" while
     the correct answer stays identical, so appearance stops predicting the answer
   - Singapore improved by **+0.110**
@@ -204,8 +223,8 @@ the results were seen.
     the headline rather than buried
 - **Measured every lesion (R6–R9)**
   - Count, total burden, largest-lesion diameter **and** volume, left/right spread
-  - Every measurement computed **twice** — once from the expert masks, once from
-    our model — so next week cannot train on its own guesses
+  - Every measurement computed **twice**, once from the expert masks, once from
+    our model, so next week cannot train on its own guesses
 
 ![Expert vs our measurements](outputs/week4-labelling/04-the-measurements/expert_vs_ours.png)
 
