@@ -130,15 +130,16 @@ def figure_a_vs_c(scores, commit, logger):
         axes[row, 1].axis("off")
 
         case.panel(axes[row, 2])
-        axes[row, 2].set_title(f"METHOD 2: neural network\nDice {row_scores.dice:.3f}",
-                               fontsize=10, fontweight="bold")
+        axes[row, 2].set_title(
+            f"METHOD 2: four neural networks, combined\nDice {row_scores.dice:.3f}",
+            fontsize=10, fontweight="bold")
         if row == 0:
             _legend(axes[row, 2])
 
-    _stamp(fig, "WEEK 3 — finding the lesions: simple method vs neural network",
-           "Green = the expert's answer. Red = ours. The middle column marks far too much; "
-           "the right column tracks the green closely. Held-out patients the network never "
-           "trained on. Dice 0.43 -> 0.81.", commit)
+    _stamp(fig, "Finding the lesions: simple method vs the neural network",
+           "Green = the expert's answer, red = ours, on held-out patients the model never "
+           "trained on. Method 2 is the current model: four augmented networks combined by "
+           "voting. Mean Dice across the 12 held-out patients: 0.43 -> 0.80.", commit)
     fig.tight_layout(rect=(0, 0, 1, 0.94))
     _save(fig, WEEK3 / "00-overview" / "simple-method-vs-neural-network.png", commit, logger)
 
@@ -246,9 +247,9 @@ def figure_scores(scores, commit, logger):
     colours = {"Amsterdam": "#4C72B0", "Singapore": "#DD8452", "Utrecht": "#55A868"}
 
     sites = list(colours)
-    axes[0].bar([f"Method 1\n(cut-off)", "Method 2\n(network)"], [0.4291, 0.8056],
+    axes[0].bar([f"Method 1\n(cut-off)", "Method 2\n(4 networks)"], [0.4291, 0.8038],
                 color=["#999999", "#2E7D32"], width=0.55)
-    for x, value in enumerate([0.4291, 0.8056]):
+    for x, value in enumerate([0.4291, 0.8038]):
         axes[0].text(x, value + 0.02, f"{value:.3f}", ha="center", fontsize=12,
                      fontweight="bold")
     axes[0].set(ylim=(0, 1), ylabel="Dice (1.0 = perfect)",
@@ -285,7 +286,11 @@ def figure_scores(scores, commit, logger):
 def main() -> None:
     logger = setup_logging(SCRIPT_NAME, OUTPUTS_DIR)
     commit = get_git_commit_hash()
-    scores = pd.read_csv(OUTPUTS_DIR / "route_c_scores.csv")
+    # The ENSEMBLE scores, not route_c_scores.csv. `Case.pred` loads pred_wmh
+    # from disk, and run_ensemble.py overwrote those with the four-network
+    # augmented predictions — so reading the old single-network scores printed a
+    # Dice that did not belong to the contours being drawn beside it.
+    scores = pd.read_csv(OUTPUTS_DIR / "ensemble_scores.csv")
 
     logger.info("writing Week 3 gallery to %s", WEEK3)
     figure_a_vs_c(scores, commit, logger)

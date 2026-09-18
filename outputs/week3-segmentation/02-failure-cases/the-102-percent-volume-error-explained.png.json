@@ -1,7 +1,7 @@
 {
-  "generating_script": "segmentation/make_outputs.py",
-  "git_commit": "237f7cbf3e35d12e6bb9b2bb0584db22e151d0a2-dirty",
-  "timestamp_utc": "2026-09-13T12:52:47.569533+00:00",
+  "generating_script": "code/segmentation/make_outputs.py",
+  "git_commit": "735c0e9ae812347feb8a12d8dc618fe21ecdf203-dirty",
+  "timestamp_utc": "2026-09-18T06:37:49.778299+00:00",
   "config": {
     "seed": 42,
     "labels": {
@@ -17,7 +17,20 @@
         10.0,
         15.0
       ],
-      "distance_metric": "euclidean_mm"
+      "distance_metric": "euclidean_mm",
+      "ventricle_source": "synthseg_on_raw_t1",
+      "ventricle_labels": [
+        4,
+        43,
+        5,
+        44
+      ],
+      "measured_contamination_full_cohort": {
+        "mean_pct": 4.1,
+        "worst_pct": 16.61,
+        "n_subjects": 60
+      },
+      "lesion_voxels_removed_from_ventricle_mask": true
     },
     "largest_lesion_diameter": {
       "definition": "equivalent_sphere_diameter"
@@ -185,6 +198,6 @@
     }
   },
   "extra": {
-    "commit": "237f7cbf3e35d12e6bb9b2bb0584db22e151d0a2-dirty"
+    "commit": "735c0e9ae812347feb8a12d8dc618fe21ecdf203-dirty"
   }
 }
