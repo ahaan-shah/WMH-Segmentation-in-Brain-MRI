@@ -45,7 +45,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 
-from metadata.config import CODE_ROOT, PROJECT_ROOT, SEED
+from metadata.config import CODE_ROOT, PROJECT_ROOT, SEED, UNET_CONFIG
 from metadata.loader import load_split, subjects_by_key
 from metadata.provenance import write_manifest
 from metadata.runlog import setup_logging
@@ -150,9 +150,9 @@ def run_one(held_out_site: str, args, logger) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--epochs", type=int, default=80)
-    parser.add_argument("--batch-size", type=int, default=16)
-    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--epochs", type=int, default=UNET_CONFIG["epochs"])
+    parser.add_argument("--batch-size", type=int, default=UNET_CONFIG["batch_size"])
+    parser.add_argument("--lr", type=float, default=UNET_CONFIG["learning_rate"])
     parser.add_argument("--seed", type=int, default=SEED)
     parser.add_argument("--sites", nargs="+", default=list(SITES), choices=list(SITES))
     parser.add_argument("--augment-strength", type=float, default=0.0,

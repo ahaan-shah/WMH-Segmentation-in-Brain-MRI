@@ -32,7 +32,7 @@ import pandas as pd
 import torch
 
 from checks.official_score import aggregate, score_prediction
-from metadata.config import CODE_ROOT, PROJECT_ROOT
+from metadata.config import CODE_ROOT, PROJECT_ROOT, UNET_CONFIG
 from metadata.derived import PRED_WMH, derived_path, save_derived
 from metadata.loader import load_split, subjects_by_key
 from metadata.provenance import write_manifest
@@ -117,7 +117,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--splits", nargs="+", default=["train", "val"],
                         choices=["train", "val", "test"])
-    parser.add_argument("--threshold", type=float, default=0.5)
+    parser.add_argument("--threshold", type=float,
+                        default=UNET_CONFIG["ensemble_probability_threshold"],
+                        help="probability cut applied ONCE to the averaged soft vote "
+                             "(default %(default)s, from dataset.yaml)")
     parser.add_argument("--no-tta", action="store_true")
     args = parser.parse_args()
 
@@ -156,15 +159,30 @@ def main() -> None:
     write_manifest(QC_CSV, generating_script=f"code/segmentation/{SCRIPT_NAME}.py")
 
     pd.set_option("display.width", 250)
+    logger.info("all %d subjects in this run:\n    %s", len(table),
+                {k: (round(v, 4) if isinstance(v, float) else v)
+                 for k, v in aggregate(table.to_dict("records")).items()})
+
+    # `held_out` marks subjects in the Week 1 VALIDATION split, which is a
+    # subset of the 60 training subjects. It is therefore empty whenever this
+    # runs on anything else — notably Week 7's `--splits test`, where none of
+    # the 110 official subjects can be in it. `aggregate()` raises on an empty
+    # list rather than inventing a mean (checks/official_score.py), and an
+    # empty groupby prints nothing useful, so the split has to be explicit:
+    # on the test set the whole-run line above IS the number that counts.
     held_out = table[table.held_out]
+    if held_out.empty:
+        logger.info("no validation subjects in this run (splits=%s) — the whole-run "
+                    "figure above is the result; the Week 3/4 reference points below "
+                    "are validation-split numbers and are not comparable to it, so "
+                    "they are omitted", args.splits)
+        return
+
     logger.info("HELD-OUT (%d subjects) — the number that counts:\n    %s",
                 len(held_out), {k: (round(v, 4) if isinstance(v, float) else v)
                                 for k, v in aggregate(held_out.to_dict("records")).items()})
     logger.info("held-out per site:\n%s", held_out.groupby("site")[
         ["dice", "lesion_f1", "lesion_recall"]].mean().round(4).to_string())
-    logger.info("all %d subjects:\n    %s", len(table),
-                {k: (round(v, 4) if isinstance(v, float) else v)
-                 for k, v in aggregate(table.to_dict("records")).items()})
 
     # NOTE: 0.8056 is the WEEK 3 single U-Net trained WITHOUT scanner
     # augmentation. Comparing the augmented ensemble against it mixes two
@@ -180,12 +198,10 @@ def main() -> None:
                 len(members), held_out["dice"].mean())
     logger.info("    For the augmentation / ensembling / TTA contributions measured "
                 "separately, run: python -m segmentation.compare_ensemble")
-    if gain <= 0:
-        logger.warning("The ensemble did not beat the best single model. That is a real "
-                       "result, not a bug — report it rather than quietly keeping the "
-                       "single model. Note the single model's 0.8056 was itself selected "
-                       "as the best epoch ON this same validation set, so it is mildly "
-                       "optimistic; the ensemble number is not.")
+    logger.info("    Read those three numbers with one caveat: 0.8056 was the best EPOCH "
+                "selected on this same validation set, so it is mildly optimistic, while "
+                "the ensemble number involves no such selection. Neither is a controlled "
+                "comparison of a single change.")
 
 
 if __name__ == "__main__":

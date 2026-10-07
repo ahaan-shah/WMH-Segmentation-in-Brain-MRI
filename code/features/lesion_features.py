@@ -49,6 +49,8 @@ from __future__ import annotations
 import numpy as np
 from scipy import ndimage as ndi
 
+from metadata.config import (LESION_COUNT_CONNECTIVITY,
+                             SMALL_LESION_THRESHOLD_VOXELS)
 from metadata.geometry import world_coordinates
 from preprocessing.morphology import CONNECTIVITY_6, CONNECTIVITY_26
 
@@ -141,6 +143,16 @@ def extract_features(
         return features
 
     # --- R6: lesion count, both connectivities ---
+    # 26 is the project primary (it matches the official scorer's
+    # SetFullyConnected(True)); 6 is reported alongside because the choice
+    # moves the count by ~30%. Guarded rather than branched: if the primary
+    # ever changes in dataset.yaml, the sizes/largest-lesion logic below and
+    # every reported count change with it, so that has to be a deliberate edit
+    # here and not a silent config flip.
+    assert LESION_COUNT_CONNECTIVITY == 26, (
+        f"features.lesion_count_connectivity is {LESION_COUNT_CONNECTIVITY} in "
+        f"dataset.yaml, but this function labels components with 26-connectivity "
+        f"and the official scorer uses 26. Change both together or neither.")
     labelled, n_26 = ndi.label(lesion_mask, structure=CONNECTIVITY_26)
     _, n_6 = ndi.label(lesion_mask, structure=CONNECTIVITY_6)
     features["lesion_count_26conn"] = int(n_26)
@@ -150,7 +162,16 @@ def extract_features(
     features["mean_lesion_volume_ml"] = float(sizes.mean() * voxel_volume_mm3 / 1000.0)
     # Half this cohort's reference lesions are <=5 voxels; carrying the count
     # makes that visible in the feature table rather than only in Week 2's notes.
-    features["small_lesion_count_le5vox"] = int((sizes <= 5).sum())
+    # Nothing is deleted at this size — it is a reported count, not a filter.
+    # The column name keeps the literal so the CSV header stays stable and
+    # self-describing; it is asserted against the config rather than drifting
+    # from it silently.
+    assert SMALL_LESION_THRESHOLD_VOXELS == 5, (
+        "small_lesion_threshold_voxels changed in dataset.yaml; the "
+        "'small_lesion_count_le5vox' column name and every report quoting "
+        "'49.6% of lesions are <=5 voxels' need updating together")
+    features["small_lesion_count_le5vox"] = int(
+        (sizes <= SMALL_LESION_THRESHOLD_VOXELS).sum())
 
     # --- R8: largest lesion, volume and BOTH diameters ---
     largest_label = int(np.argmax(sizes)) + 1

@@ -40,7 +40,7 @@ import numpy as np
 import pandas as pd
 
 from checks.official_score import score_in_memory
-from metadata.config import CODE_ROOT, PROJECT_ROOT
+from metadata.config import CODE_ROOT, PROJECT_ROOT, ROUTE_A_CONFIG
 from metadata.derived import BRAIN_MASK, FLAIR_NORM, TISSUE_SEG, load_derived, load_derived_mask
 from metadata.loader import load_raw_mask_array, load_split, subjects_by_key
 from metadata.provenance import write_manifest
@@ -54,9 +54,11 @@ SUMMARY_CSV = OUTPUTS_DIR / "route_a_threshold_summary.csv"
 
 # Brackets the measured lesion range (1.32-1.88x normal white matter), extended
 # downward because a lower threshold trades precision for recall and the optimum
-# need not sit at the lesion median.
-THRESHOLDS = (1.05, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35, 1.40, 1.50, 1.60)
-MIN_SIZES = (0, 2, 3, 5)
+# need not sit at the lesion median. The grid lives in dataset.yaml
+# (segmentation.route_a_threshold) with the selection rule beside it, so the
+# candidates that were tried stay on record next to the one that won.
+THRESHOLDS = tuple(ROUTE_A_CONFIG["thresholds_swept"])
+MIN_SIZES = tuple(ROUTE_A_CONFIG["min_sizes_swept"])
 
 
 def load_subject(key: str):

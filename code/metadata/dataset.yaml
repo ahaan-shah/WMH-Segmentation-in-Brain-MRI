@@ -94,16 +94,41 @@ periventricular:
   # structure distance is measured from. features/periventricular.py.
 
 largest_lesion_diameter:
-  definition: equivalent_sphere_diameter
-  # Decision #8. Two candidate definitions: max Feret diameter (true geometric
-  # extent, but expensive and ambiguous to compute robustly on irregular 3D
-  # blobs at scale) vs. equivalent-sphere diameter (deterministic, cheap,
-  # derived directly from the voxel-count volume already being computed:
-  # d = (6V / pi)^(1/3)). We lock equivalent-sphere diameter as the primary,
-  # reported metric for W4 because it is unambiguous and reproducible; max
-  # Feret is noted as a stretch/cross-check metric if W4 has slack. Whichever
-  # is used, CLAUDE.md requires stating the definition once and applying it
-  # consistently — this is that statement.
+  definition: maximum_feret_diameter
+  also_reported: equivalent_sphere_diameter
+  # Decision #8. REVISED IN WEEK 4 BY MEASUREMENT — see the correction below.
+  #
+  # Week 1 locked `equivalent_sphere_diameter` (d = (6V/pi)^(1/3)) on the
+  # grounds that it is deterministic, cheap, and derived straight from the
+  # voxel-count volume already being computed, where max Feret diameter looked
+  # expensive and ambiguous on irregular 3D blobs. That reasoning was sound
+  # about cost and wrong about relevance.
+  #
+  # WEEK 4 CORRECTION. Having now seen the lesions, the large ones in this
+  # cohort are long thin confluent caps hugging the ventricle wall — nothing
+  # like spheres. Measured across the 60 reference masks:
+  #
+  #     max Feret diameter          76.20 mm (mean)
+  #     equivalent-sphere diameter  21.26 mm (mean)
+  #     ratio                       3.58x
+  #
+  # Equivalent-sphere does not merely differ, it *always under-reports*
+  # elongation, so the error is a systematic bias that grows with disease
+  # severity rather than random noise — which is the opposite of what a
+  # severity measure should do. Max Feret answers the question a clinician
+  # would ask (how far does this lesion extend?), so it is now PRIMARY.
+  #
+  # Both are computed and both are reported: equivalent-sphere is the more
+  # common convention in parts of the literature, and a reader comparing
+  # against another paper needs to know which number is which.
+  #
+  # Cost turned out not to be a problem: Feret is computed on the CONVEX HULL
+  # of the lesion's world coordinates, because the two most distant points of
+  # any set are always hull vertices. That reduces an O(n^2) search over every
+  # voxel pair to one over a handful. features/lesion_features.py.
+  #
+  # Both definitions are computed in WORLD coordinates through the affine, so
+  # the 2.5-5.4x anisotropy is handled by the geometry rather than by hand.
 
 spatial_distribution:
   primary_reference_frame: hemisphere
@@ -154,25 +179,294 @@ splits:
   sites: [Utrecht, Singapore, Amsterdam]
 
 ventricle_segmentation:
-  method: flair_intensity_threshold
-  # Decision #3 / Section 11.1. Preference order was SynthSeg > FSL FAST >
-  # FLAIR-threshold trick. Neither FreeSurfer/SynthSeg nor FSL is installed
-  # in this environment, and installing either is a multi-GB, non-trivial
-  # setup step disproportionate to a throwaway W1.9 feasibility prototype
-  # (Section 12: W1.9 exists purely to measure runtime and confirm
-  # feasibility, not to produce results). The FLAIR-threshold fallback needs
-  # no T1, no registration, and no external tool — fully explainable in the
-  # report — so it was used for the W1.9 prototype. SynthSeg remains the
-  # PRIMARY candidate for the real W4 ventricle segmentation and should be
-  # re-evaluated then if FreeSurfer/SynthSeg becomes available.
+  method: synthseg_on_raw_t1
+  freesurfer_version: 8.2.0
+  labels_used: [4, 43, 5, 44]   # lateral + inferior-lateral ventricles, L and R
+  week1_prototype_method: flair_intensity_threshold   # superseded, see below
+  # Decision #3 / Section 11.1. SUPERSEDED IN WEEK 4. The operative record of
+  # the decision, including the measured input sweep that chose raw T1, is
+  # `periventricular.ventricle_source` above — this block is the Decision #3
+  # entry and is kept in step with it rather than left at its Week 1 value.
+  #
+  # Week 1 state: preference order was SynthSeg > FSL FAST > FLAIR-threshold
+  # trick. Neither FreeSurfer/SynthSeg nor FSL was installed, and installing
+  # either was disproportionate to a throwaway W1.9 feasibility prototype
+  # (Section 12: W1.9 exists to measure runtime and confirm feasibility, not
+  # to produce results). So the FLAIR-threshold fallback — no T1, no
+  # registration, no external tool — was what W1.9 prototyped, in 0.28 s on
+  # one subject.
+  #
+  # Week 4 outcome: that prototype did NOT survive the cohort. Four variants
+  # of the intensity-threshold approach were built and all four worked on only
+  # ~28% of subjects, because all four leaned on Week 2's CSF class, which was
+  # validated for normal-appearing-white-matter accuracy and NOT for CSF
+  # accuracy (it measures 314-439 mL, about a quarter of the brain). A
+  # validated artefact is not validated for every purpose.
+  #
+  # FreeSurfer 8.2.0 was then installed and SynthSeg used as originally
+  # preferred: 60/60 subjects, ~45 s each, 0 outside the plausible
+  # 5-150 mL band. Inferior-lateral horns (5, 44) are included because they
+  # are continuous with the lateral ventricles; excluding them would open a
+  # false "deep" gap at the temporal horn.
+  #
+  # W1.9 measured feasibility correctly and was read as if it had measured
+  # accuracy. First of the three small-probe misses recorded in this file.
 
 severity_classification:
-  # Section 11.4. Not implemented in W1 (out of scope, Section 12) — recorded
-  # here so the W1.10 distribution check has a documented target to assess
-  # feasibility against.
-  candidate_routes: [tertiles, fazekas_anchored, regression_then_threshold]
-  recommended_route: regression_then_threshold
-  min_subjects_per_class: 8  # below this, collapse to two classes (low/high)
+  # Weeks 5-6, R10 (bonus). DECIDED 2026-10-07, BEFORE any model was fitted
+  # and before the exploratory analysis was run, so neither the EDA nor any
+  # result could steer these choices. Week 1 left this as candidate routes
+  # only; that placeholder is superseded by everything below.
+
+  # --- THE TARGET -----------------------------------------------------------
+  # No severity ground truth ships with this dataset, so the class is DERIVED
+  # from the expert reference WMH volume. Clinically anchored cut-offs, not
+  # data-driven ones: tertiles (4.22 / 22.68 mL, 20/20/20) would only mean
+  # "worse than two thirds of these 60 people", would move with any other
+  # cohort, and a reviewer can fairly call them arbitrary.
+  target_source: reference      # NEVER prediction — see feature_source
+  scheme: fazekas_volume_4class
+  cutoffs_ml: [3.4, 9.6, 17.1]
+  classes: [normal, mild, moderate, severe]
+  # Boundary convention: a volume EQUAL to a cut-off goes to the higher class
+  # (normal < 3.4 <= mild < 9.6 <= moderate < 17.1 <= severe).
+  #
+  # SOURCE — verified against the paper itself on 2026-10-07, not taken from
+  # ROADMAP:
+  #   Joo L, Shim WH, Suh CH, et al. "Diagnostic performance of deep
+  #   learning-based automatic white matter hyperintensity segmentation for
+  #   classification of the Fazekas scale and differentiation of subcortical
+  #   vascular dementia." PLOS ONE 17(9):e0274562, 2022.
+  #   doi:10.1371/journal.pone.0274562
+  #
+  # What the paper actually did: 800 memory-clinic patients (596 train / 204
+  # test), age 69.1 +- 10.4, single site, 3T Philips Ingenia, 2D FLAIR at
+  # 4 mm. WMH volume from a commercial CNN (VUNO Med-DeepBrain). Radiologists
+  # graded Fazekas normal/mild/moderate/severe for periventricular AND deep,
+  # and the representative grade was "maximal grading of either
+  # periventricular or deep white matter". Cut-offs are the Youden-optimal
+  # points on ROC curves:
+  #     normal  vs mild+          3.4 mL   AUC 0.921
+  #     <=mild  vs moderate+      9.6 mL   AUC 0.956  (test set: sens 96.4%,
+  #                                                    spec 89.9%, acc 91.7%)
+  #     <=moderate vs severe     17.1 mL   AUC 0.960
+  #
+  # Two corrections to ROADMAP 8.1, recorded so they are not reintroduced:
+  #  - First author is JOO, not "Jung".
+  #  - The three cut-offs define FOUR classes, not three. Using 3.4 / 17.1 as
+  #    a three-way split (as first proposed this session) labels the paper's
+  #    "normal" group as "mild" and merges its mild and moderate. That is a
+  #    clinical mislabelling, which is why the primary scheme is 4-class.
+  #
+  # Caveats the paper states itself, carried into our limitations: "the
+  # cut-off values may depend on the scanner and the algorithms used for the
+  # automatic WMH" segmentation. Ours differ on both counts (three vendors,
+  # 3 mm slices, expert manual masks as the volume source).
+  #
+  # What "normal" means HERE: every subject in this cohort has some WMH
+  # (minimum 0.79 mL; mean age 70.1). "Normal" therefore means below the
+  # volume that radiologists in Joo et al. graded as mild disease — within
+  # what is expected for age — not "no lesions".
+
+  sensitivity_scheme: fazekas_volume_3class_merged
+  sensitivity_cutoffs_ml: [9.6, 17.1]
+  sensitivity_classes: [normal_or_mild, moderate, severe]
+  # Reported BESIDE the 4-class result, the same way Week 4 reported 5 and
+  # 15 mm beside 10 mm. Merges normal+mild (rather than relabelling normal as
+  # mild), so every class keeps the paper's meaning. The 9.6 mL cut is also
+  # the one Joo et al. validated most strongly on held-out data.
+
+  min_subjects_per_class: 8
+  # Pre-set floor from Week 1. Measured 4-class counts on the 60: 18/8/9/25 —
+  # mild sits exactly on the floor. Not collapsed, because collapsing is what
+  # the 3-class sensitivity scheme already does; instead every analysis uses
+  # repeated CV and order-aware metrics, and the thin classes are stated as a
+  # limitation.
+
+  # --- THE FEATURES ---------------------------------------------------------
+  feature_source: loso_prediction
+  # Target from the reference, features from OUR SEGMENTATION, or the model
+  # trivially inverts its own target (ROADMAP 8.2 identified the trap; it is
+  # correct). And not from the production ensemble's predictions: 48 of the
+  # 60 are subjects those networks TRAINED on, so their measurements are
+  # in-sample. A plain threshold on predicted volume scores 100% on those 48
+  # but 75% on the 12 validation subjects. Features therefore come from the
+  # Week 3 leave-one-site-out networks: each site's 20 subjects segmented by
+  # the network that never saw that site — honest for all 60, and harder than
+  # in-sample, which is the condition Week 7 faces.
+  #
+  # CAVEAT, accepted 2026-10-07 by the user rather than retrained away: each
+  # leave-one-site-out checkpoint is the epoch that scored best ON ITS OWN
+  # held-out site (segmentation/train_loso.py). The networks never trained on
+  # those patients, but the saved version was picked with a peek at them, so
+  # the features are mildly optimistic. Retraining with a fixed final epoch
+  # would remove it (~3.6 h GPU); judged not worth it for an effect limited to
+  # choosing among a handful of saved epochs. Stated in the Week 5 limitations.
+  loso_epoch_selection_caveat: accepted_and_stated
+
+  feature_set_volume_only: [log_total_volume]
+  feature_set_full:
+    - log_total_volume            # HOW MUCH disease — log1p(mL), WMH burden is
+                                  # roughly log-normal across a population
+    - periventricular_fraction    # WHERE it is (10 mm rule, Week 4)
+    - abs_laterality_index        # WHETHER it is one-sided; magnitude only,
+                                  # severity has no left/right direction
+    - log_lesion_count            # HOW SCATTERED — log1p(26-conn count)
+    - small_lesion_fraction       # HOW MUCH is punctate — lesions <=5 voxels
+                                  # as a share of the count
+    - largest_lesion_share        # HOW CONFLUENT — largest lesion volume as a
+                                  # share of total volume
+  # The last two were chosen for a clinical reason, not a statistical one:
+  # Fazekas itself defines its deep grades as "punctate foci" -> "beginning
+  # confluence" -> "large confluent areas" (verbatim in Joo et al.), and these
+  # two features measure exactly that progression.
+  #
+  # REDUCED FROM 14 BY DEFINITION, NOT BY LOOKING AT THE TARGET. Measured
+  # Spearman rho between Week 4 prediction features (target never consulted):
+  #   left / right volume vs total         0.98 / 0.98   (left+right = total)
+  #   periventricular / deep vs total      0.96 / 0.85   (pv+deep = total)
+  #   largest volume vs total              0.96
+  #   equivalent-sphere vs largest volume  1.00          (it is a formula of it)
+  #   6-conn vs 26-conn count              0.98
+  #   mean lesion volume                   = total / count
+  #   Feret diameter vs total              0.90
+  # Exact identities and formulas were dropped; raw amounts were re-expressed
+  # as proportions so they describe the PATTERN of disease rather than its
+  # amount a second time. Measured: periventricular fraction rho 0.05 and
+  # laterality 0.07 against total — the only near-independent information.
+  #
+  # Feret stays reported for R8; it is just not a classifier input.
+  # NEVER a feature: total_lesion_voxels. Voxel size differs by scanner, so a
+  # raw voxel count would quietly tell the model which hospital it is looking
+  # at. (The same risk applies, more mildly, to small_lesion_fraction: "<=5
+  # voxels" is a different physical size per site. Checked in the EDA rather
+  # than assumed.)
+  #
+  # Rejected: PCA. Its first component would be "burden" again, and none of
+  # its components can be interpreted clinically, which the rubric grades.
+  # Rejected: choosing features by their association with the class on all
+  # 60. That is selecting with the answers in view and then testing on the
+  # same patients. Any target-dependent selection happens INSIDE each CV fold
+  # (an L1/L2 penalty does this by construction).
+
+  # --- THE MODELS AND THE PROTOCOL -----------------------------------------
+  baselines: [majority_class, threshold_rule_on_predicted_volume]
+  # The threshold rule applies the Joo cut-offs directly to OUR predicted
+  # volume, no learning — the "rule-based thresholds" route the problem
+  # statement explicitly allows. Every model must beat it to justify itself.
+  models:
+    - regression_then_threshold   # predict log volume, then apply cut-offs;
+                                  # learns from the continuous value, so thin
+                                  # classes do not starve it (CLAUDE.md 11.4)
+    - ordinal_logistic            # respects normal < mild < moderate < severe
+    - multinomial_logistic        # treats classes as unordered; the control
+    - random_forest               # tests whether non-linear combinations help
+  experiments:
+    - volume_only                 # all models vs the threshold rule
+    - full_features               # does PATTERN add anything beyond AMOUNT?
+  cross_validation: repeated_stratified_kfold
+  cv_folds: 5
+  cv_repeats: 10
+  # Stratified on the 4-class target. Hyperparameters, where any are tuned,
+  # are tuned in an INNER loop (nested CV) or the reported score is
+  # optimistic.
+  primary_metrics: [quadratic_weighted_kappa, mean_absolute_class_error,
+                    balanced_accuracy]
+  # Order-aware first: calling a severe patient normal is a worse error than
+  # calling them moderate, and plain accuracy cannot tell the two apart.
+  # Plain accuracy, confusion matrices and per-class precision/recall/F1 are
+  # reported too. Per-site results are mandatory: severity is not evenly
+  # distributed across hospitals.
+
+  # --- MODEL SETTINGS, fixed before any result --------------------------------
+  # Every learned model is a scikit-learn Pipeline, so standardisation is fitted
+  # on each training fold only and never sees the test fold.
+  model_settings:
+    regression_then_threshold:
+      estimator: ridge            # predicts log1p(reference volume), then the
+                                  # Joo cut-offs are applied to the prediction
+      tune: {alpha: [0.01, 0.1, 1.0, 10.0, 100.0]}
+    ordinal_logistic:
+      implementation: decided_at_build   # statsmodels OrderedModel if it
+      # installs on Python 3.14, otherwise the Frank & Hall cumulative-binary
+      # construction from scikit-learn parts. Chosen by installability, not by
+      # results, and recorded here when made.
+    multinomial_logistic:
+      class_weight: balanced      # thin classes (8, 9) must not be ignored
+      tune: {C: [0.01, 0.1, 1.0, 10.0, 100.0]}
+    random_forest:
+      n_estimators: 500
+      min_samples_leaf: 3
+      max_features: sqrt
+      class_weight: balanced
+      tune: none
+      # Deliberately untuned. At n = 60, a forest's many settings would be fitted
+      # to noise, and nested tuning would make the comparison with the
+      # one-parameter models unequal. Conservative fixed settings instead.
+  inner_cv_folds: 5               # tuning happens INSIDE each outer training
+                                  # fold (nested CV), scored on QWK
+
+  # --- HOW THE FINAL OPTION IS CHOSEN ----------------------------------------
+  # Fixed 2026-10-07, before any model was fitted. Ten-odd candidates are run;
+  # picking the top scorer would select partly for LUCK — with 60 patients the
+  # gaps between candidates may be smaller than fold-to-fold noise, and the
+  # winner's score is then an over-estimate. Two guards: this rule, which makes
+  # a more complex option EARN its place, and Week 7, where the chosen option
+  # is run once on the 110 sealed subjects — a score the selection never saw.
+  selection:
+    scheme: 4class                # selection on the primary scheme only; the
+                                  # 3-class result is reported, never selects
+    score: quadratic_weighted_kappa
+    score_unit: pooled_out_of_fold_per_repeat
+    # Per fold, QWK would be computed on 12 patients — too noisy. Instead each
+    # repeat's out-of-fold predictions are pooled (every patient predicted once
+    # by a model that never saw them) and one QWK is computed on all 60. Ten
+    # repeats -> ten QWKs per candidate; the candidate's score is their mean.
+    complexity_tiers:             # simplest first
+      1: [threshold_rule]
+      2: [regression_then_threshold, ordinal_logistic,
+          multinomial_logistic, random_forest]          # volume only
+      3: [regression_then_threshold, ordinal_logistic,
+          multinomial_logistic, random_forest]          # volume + 5 pattern
+    never_selectable: [majority_class]   # the floor, reported only
+    procedure: >
+      Start with the threshold rule as the incumbent. Take the best candidate of
+      the next tier. It REPLACES the incumbent only if both promotion conditions
+      hold; then repeat with the tier after. Otherwise the incumbent stands and
+      selection stops — a tier that cannot beat the simpler option is not
+      allowed to be skipped over by the tier above it.
+    promotion_conditions:
+      overall: one_standard_error
+      # Its mean QWK must exceed the incumbent's by more than one standard error
+      # of the PAIRED difference. The SE comes from a patient-level bootstrap
+      # (resample the 60 patients with replacement, recompute both candidates'
+      # mean QWK on the same resample, take the difference) — not from the
+      # spread across repeats, which only reflects how patients were dealt into
+      # folds and understates the real uncertainty because every repeat uses the
+      # same 60 people.
+      bootstrap_resamples: 2000
+      per_site: wins_or_ties_on_at_least_2_of_3_sites
+      # A model that wins overall by doing much better on one hospital and worse
+      # on the others has partly learned the hospital. Per-site QWK, same
+      # pooled out-of-fold predictions.
+    within_tier_tiebreak: >
+      Inside a tier, any candidate within one bootstrap SE of the tier's best is
+      treated as tied with it, and the most interpretable tied candidate is put
+      forward, in the order regression_then_threshold, ordinal_logistic,
+      multinomial_logistic, random_forest.
+    reported_for_every_candidate:
+      - mean_signed_class_error   # >0 over-grades, <0 under-grades. Reported,
+                                  # and |value| > 0.25 classes is flagged in the
+                                  # report — a systematic lean is a clinical
+                                  # problem even when kappa looks fine
+      - per_site_scores
+      - boundary_patient_errors   # the 14 within median measurement error of a
+                                  # cut-off (EDA), scored separately
+    final_model: >
+      The selected configuration is refit once on all 60 subjects'
+      leave-one-site-out features and frozen. Its CV score is reported as an
+      estimate that the selection itself has made mildly optimistic; the
+      number that counts is Week 7's, on the 110 sealed subjects.
 
 evaluation:
   vendored_script: checks/evaluation.py
@@ -727,3 +1021,204 @@ preprocessing:
     # validation split only. Deliberately left unset here: with 49.6% of
     # reference lesions at <=5 voxels, any minimum-size filter trades directly
     # between two scored metrics and must not be guessed.
+
+# ---------------------------------------------------------------------------
+# Week 3 — segmentation (R4)
+# ---------------------------------------------------------------------------
+# Added retrospectively in Week 5. Weeks 3 and 4 recorded their decisions in
+# the weekly reports and in the QC CSVs — with `selected` columns, so every
+# choice was traceable — but the parameters themselves stayed as script
+# defaults, which is the one place this project did not hold Section 5.5.
+# Nothing here is a new decision: every value is the value the production run
+# used, and the scripts now read these rather than carrying their own copy.
+
+segmentation:
+
+  route_a_threshold:
+    # The classical baseline, kept so Route C has something honest to beat.
+    # Thresholds a multiple of this subject's own normal-appearing white
+    # matter, which is exactly 1.0 after Week 2's normalisation — so these
+    # numbers are physically interpretable rather than scanner-specific.
+    #
+    # CANDIDATES AND RULE, both fixed before results were seen:
+    #   threshold   1.05 ... 1.60   (brackets the measured lesion range of
+    #                                1.32-1.88x NAWM, extended downward
+    #                                because a lower threshold trades
+    #                                precision for recall and the optimum
+    #                                need not sit at the lesion median)
+    #   min size    0 / 2 / 3 / 5 voxels  (deliberately small: Week 2
+    #                                measured that 5 voxels already deletes
+    #                                43.5% of true lesions for 3.4% of volume)
+    #   metric      mean Dice on the TRAINING split only
+    #
+    # The metric is declared incomplete rather than silently trusted: Dice is
+    # volume-weighted and therefore nearly blind to losing small lesions,
+    # which is half the population here. Voxel recall and the predicted-volume
+    # ratio are reported alongside so a Dice won by deleting everything small
+    # is visible as such.
+    #
+    # MEASURED (training split, selected row in bold):
+    #   thr   min   Dice    recall   volume ratio
+    #   1.05   0    0.089   0.960    23.3x      <- untuned, over-predicts 23x
+    #   1.30   5    0.36    0.80     ~3x
+    #   1.40   5    0.471   0.620    1.19x      <- SELECTED
+    #
+    # Held-out (12 validation subjects) Dice: 0.4291. Route C reaches 0.8038
+    # on the same subjects, which is what justifies the U-Net rather than
+    # asserting that a deep model must be better.
+    thresholds_swept: [1.05, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35, 1.40, 1.50, 1.60]
+    min_sizes_swept: [0, 2, 3, 5]
+    selection_metric: mean_dice_on_train_split
+    selected_threshold: 1.40
+    selected_min_size_voxels: 5
+    held_out_dice: 0.4291
+    restrict_to_white_matter: false
+    # NEVER true. Week 2 measured that the WM mask covers a median 70% / worst
+    # 11% of true lesions, because WMH are T1-hypointense — so using it as a
+    # hard filter would delete a median 30% / worst 89% of TRUE lesions and
+    # present as a segmentation failure rather than a masking bug.
+    # ROADMAP 6.3.1 proposed exactly this. Measurement rejected it.
+
+  route_c_unet:
+    # The selected method. 2D axial slices, two input channels, because
+    # lesions are BRIGHT on FLAIR and DARK on T1 and that conjunction is far
+    # more specific than either alone.
+    architecture: unet_2d
+    in_channels: 2            # normalised FLAIR + normalised T1
+    base_filters: 32
+    depth: 4
+    parameters_millions: 7.76
+    loss: masked_dice_plus_bce
+    # Masked, not plain: the loss is evaluated only inside the brain mask.
+    # Dice handles the ~0.5% voxel-level class imbalance that BCE alone
+    # would collapse under; BCE keeps the gradients well behaved early.
+    epochs: 80
+    batch_size: 16
+    learning_rate: 0.001
+    seeds: [42, 1, 2, 3]
+    # Four members, identical architecture/data/recipe, differing only in
+    # seed. Individual held-out Dice 0.7922 / 0.8004 / 0.7983 / 0.7983 — the
+    # tightness is itself the result: ~0.80 is reliable, not lucky.
+    ensemble_vote: soft
+    # Probabilities are averaged and the threshold applied ONCE at the end.
+    # Hard voting would throw away the confidence information that makes
+    # averaging worth doing: a voxel four members call 0.49 is very different
+    # from one they all call 0.02, and binary votes cannot tell them apart.
+    ensemble_probability_threshold: 0.5
+    test_time_augmentation: left_right_flip
+    # Safe for SEGMENTATION — WMH are not lateralised in a way the network
+    # should learn — but it must never touch Week 4's hemisphere features,
+    # where a flip inverts the answer.
+    post_processing: none
+    # No minimum-size filter and no morphological opening are applied to the
+    # U-Net output. Week 2 measured what both cost (see
+    # preprocessing.morphology): opening destroys 42.6% of lesion volume on
+    # average at 1 mm. The network does not need the help.
+    held_out_dice: 0.8038
+    held_out_lesion_f1: 0.7623
+    held_out_h95_mm: 4.39
+    held_out_avd_percent: 22.1
+    # 12 validation subjects. All-60 Dice is 0.8475, which is NOT the headline:
+    # 48 of those 60 are training subjects.
+    #
+    # EACH CHANGE MEASURED SEPARATELY (compare_ensemble.py) rather than
+    # inferred from one combined number — the mistake this script originally
+    # made by comparing against a stored constant from a different config:
+    #                          in-domain   out-of-domain
+    #   scanner augmentation    -0.0037       +0.0413
+    #   ensembling 4 nets       +0.0019          -
+    #   test-time flips         +0.0010          -
+    # The in-domain cost of augmentation is real and is paid deliberately:
+    # Week 7 is an out-of-domain problem, with two of five scanners unseen.
+    #
+    # Ensembling at +0.002 against an expected +0.01-0.03 is a near-null
+    # result and is reported as one. Cause: four nets this similar do not make
+    # independent errors. Kept anyway, because on an unfamiliar scanner a
+    # single net can be confidently wrong while four tend to disagree, and
+    # averaging disagreement pulls toward caution.
+
+  augmentation:
+    # Scanner-simulating augmentation: the same brain shown in different
+    # "scanner costumes" while the correct answer stays identical, so
+    # appearance stops predicting the label.
+    #
+    # GAMMA IS THE LOAD-BEARING ONE. A gain factor rescales every tissue
+    # together and a network with any normalisation is nearly invariant to it;
+    # gamma changes contrast BETWEEN tissues, which is what actually differs
+    # across vendors. Each channel is perturbed independently, because FLAIR
+    # and T1 do not covary across scanners.
+    cli_default_strength: 0.0
+    # 0.0 reproduces the Week 3 baseline (left-right flip plus +-5% gain only)
+    # and is kept as the argparse default so that baseline stays reproducible
+    # with no flags.
+    production_strength: 1.0
+    # What all four production members were trained with.
+    components_at_strength_1:
+      gain: 0.15            # +-15%, per channel
+      gamma_spread: 0.25
+      bias_field_magnitude: 0.15
+      noise_sigma_max: 0.05
+      blur_probability: 0.15
+    judged_on: leave_one_site_out
+    # NOT on ordinary validation. Measured the usual way, augmentation looks
+    # like a small LOSS (-0.0037). Its entire value is out-of-domain, and only
+    # a leave-one-site-out protocol can see it. Same trap as Week 2's
+    # SSIM-blind denoising test: check the metric can see the failure you care
+    # about.
+
+  domain_generalisation:
+    # Train on two sites, test on the third, three times. Bands were fixed in
+    # the script BEFORE running, so the verdict is not retro-fitted to the
+    # number that came out.
+    protocol: leave_one_site_out
+    baseline_mean_dice: 0.7382      # Amsterdam 0.7711 / Singapore 0.6881 / Utrecht 0.7556
+    augmented_mean_dice: 0.7795     # Amsterdam 0.7792 / Singapore 0.7981 / Utrecht 0.7612
+    # verdict band: "partial scanner dependence" -> "generalises".
+    # In-domain gap halved, -0.070 -> -0.029. Singapore gained +0.110.
+    # This, not the 0.8038, is the honest forecast for Week 7.
+    gpu_reproducibility_limit: 0.001
+    # Measured by accident: a crashed run and a clean re-run, same seed and
+    # config, both at epoch 70, scored 0.7992 and 0.8004. cuDNN
+    # non-deterministic atomics. Stated as a limitation — GPU training here
+    # reproduces to ~0.001, not exactly.
+
+# ---------------------------------------------------------------------------
+# Week 4 — labelling and feature extraction (R5-R9)
+# ---------------------------------------------------------------------------
+# The two decisions with real alternatives already have their own top-level
+# blocks, above and unchanged: `periventricular` (R5, including the measured
+# SynthSeg input sweep) and `largest_lesion_diameter` (R8, including the Week 4
+# revision to max Feret). What is left is recorded here.
+
+features:
+
+  lesion_count_connectivity: 26
+  report_both_connectivities: true
+  # 26-connectivity matches the official scorer (checks/evaluation.py calls
+  # SetFullyConnected(True)) and is the project default everywhere, including
+  # the Week 1 index. 6-connectivity is reported ALONGSIDE because the choice
+  # changes the answer by about 30% — 61.3 lesions per subject at 26-conn
+  # against 78.5 at 6-conn — and stating the connectivity is worth more than
+  # a single unqualified count. Two lesions touching only at a corner are one
+  # object under 26 and two under 6.
+
+  small_lesion_threshold_voxels: 5
+  # Not a filter — nothing is deleted at this size. It is a reported COUNT,
+  # because 49.6% of all reference lesions in this cohort are <=5 voxels.
+  # Carrying it as a feature keeps that visible in the table rather than only
+  # in Week 2's notes, and it is the reason lesion count is reported beside
+  # volume: a volume-weighted metric alone is blind to half the population.
+
+  feature_sources: [reference, prediction]
+  # Every feature is computed TWICE per subject, from the expert mask and from
+  # our prediction. Not redundancy — it is what makes Weeks 5-6 non-circular
+  # (target from reference, features from prediction; see
+  # severity_classification and ROADMAP 8.2) and it is what lets Week 7 ask
+  # "how good are our MEASUREMENTS" separately from "how good is our
+  # segmentation". Measured agreement, Spearman rho: burden +0.984, largest
+  # volume +0.956, count +0.946, diameter +0.932. Burden agreeing BETTER than
+  # count is the small-lesion blindness Week 2 predicted, showing up on cue.
+  #
+  # PREDICTION-SIDE FEATURES ARE STALE THE MOMENT THE MODEL CHANGES. They are
+  # currently from the 4-member augmented ensemble with TTA. Re-run
+  # run_ensemble then run_features, in that order.

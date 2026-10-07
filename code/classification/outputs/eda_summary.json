@@ -1,0 +1,46 @@
+{
+  "class_counts_4": {
+    "normal": 18,
+    "mild": 8,
+    "moderate": 9,
+    "severe": 25
+  },
+  "class_counts_3": {
+    "normal_or_mild": 26,
+    "moderate": 9,
+    "severe": 25
+  },
+  "class_counts_4_by_site": {
+    "Amsterdam": {
+      "normal": 8,
+      "mild": 5,
+      "moderate": 3,
+      "severe": 4
+    },
+    "Singapore": {
+      "normal": 4,
+      "mild": 1,
+      "moderate": 5,
+      "severe": 10
+    },
+    "Utrecht": {
+      "normal": 6,
+      "mild": 2,
+      "moderate": 1,
+      "severe": 11
+    }
+  },
+  "site_class_cramers_v": 0.298468312109231,
+  "site_class_permutation_p": 0.0983901609839016,
+  "heldout_median_abs_volume_error": 0.12869775054662674,
+  "heldout_p90_abs_volume_error": 0.8983835964977925,
+  "n_within_median_error_of_cutoff": 14,
+  "n_within_p90_error_of_cutoff": 41,
+  "max_abs_rho_between_features": 0.7318143928869131,
+  "max_abs_rho_pair": [
+    "log_total_volume",
+    "largest_lesion_share"
+  ],
+  "threshold_rule_acc_4class_insample": 0.9166666666666666,
+  "threshold_rule_acc_4class_heldout": 0.75
+}

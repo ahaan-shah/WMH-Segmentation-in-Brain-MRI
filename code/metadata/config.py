@@ -76,6 +76,25 @@ DENOISING_CONFIG = PREPROCESSING["denoising"]
 CONTRAST_ENHANCEMENT_CONFIG = PREPROCESSING["contrast_enhancement"]
 MORPHOLOGY_CONFIG = PREPROCESSING["morphology"]
 
+# --- Week 3 segmentation (see the `segmentation:` block in dataset.yaml,
+# which records the candidates, the pre-fixed selection rule and the measured
+# table behind each of these) ---
+SEGMENTATION = DATASET_CONFIG["segmentation"]
+ROUTE_A_CONFIG = SEGMENTATION["route_a_threshold"]
+UNET_CONFIG = SEGMENTATION["route_c_unet"]
+AUGMENTATION_CONFIG = SEGMENTATION["augmentation"]
+
+# --- Week 4 feature extraction (the two decisions with real alternatives live
+# in PERIVENTRICULAR_* and the `largest_lesion_diameter:` block instead) ---
+FEATURES_CONFIG = DATASET_CONFIG["features"]
+LESION_COUNT_CONNECTIVITY = FEATURES_CONFIG["lesion_count_connectivity"]
+SMALL_LESION_THRESHOLD_VOXELS = FEATURES_CONFIG["small_lesion_threshold_voxels"]
+
+# --- Weeks 5-6 severity classification (R10). Decided before any model was
+# fitted; the `severity_classification:` block in dataset.yaml holds the
+# verified citation, the class map and the reasoning behind the feature set ---
+SEVERITY_CONFIG = DATASET_CONFIG["severity_classification"]
+
 TRAIN_VAL_SUBJECTS = DATASET_CONFIG["splits"]["train_val_subjects"]
 TRAIN_FRACTION = DATASET_CONFIG["splits"]["train_fraction"]
 VAL_FRACTION = DATASET_CONFIG["splits"]["val_fraction"]

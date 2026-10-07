@@ -28,7 +28,8 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 
-from metadata.config import CODE_ROOT, PROJECT_ROOT, SEED
+from metadata.config import (AUGMENTATION_CONFIG, CODE_ROOT, PROJECT_ROOT, SEED,
+                             UNET_CONFIG)
 from metadata.loader import load_split
 from metadata.provenance import write_manifest
 from metadata.runlog import setup_logging
@@ -150,14 +151,20 @@ def validate(model, subjects: list[dict], device, threshold: float = 0.5) -> dic
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--epochs", type=int, default=80)
-    parser.add_argument("--batch-size", type=int, default=16)
-    parser.add_argument("--lr", type=float, default=1e-3)
+    # Defaults come from dataset.yaml (segmentation.route_c_unet), not from
+    # literals here, so the production recipe lives in one place (Section 5.5).
+    parser.add_argument("--epochs", type=int, default=UNET_CONFIG["epochs"])
+    parser.add_argument("--batch-size", type=int, default=UNET_CONFIG["batch_size"])
+    parser.add_argument("--lr", type=float, default=UNET_CONFIG["learning_rate"])
     parser.add_argument("--seed", type=int, default=SEED)
     parser.add_argument("--tag", default="", help="suffix for the checkpoint, for ensembling")
-    parser.add_argument("--augment-strength", type=float, default=0.0,
-                        help="0 = Week 3 behaviour. 1.0 = scanner-simulating augmentation, "
-                             "which improved leave-one-site-out from 0.7382 to 0.7795.")
+    parser.add_argument("--augment-strength", type=float,
+                        default=AUGMENTATION_CONFIG["cli_default_strength"],
+                        help="0 = Week 3 behaviour, kept as the default (%(default)s) so "
+                             "that baseline stays reproducible with no flags. Production "
+                             f"used {AUGMENTATION_CONFIG['production_strength']} — "
+                             "scanner-simulating augmentation, which improved "
+                             "leave-one-site-out from 0.7382 to 0.7795.")
     parser.add_argument("--resume", action="store_true",
                         help="continue from the per-epoch resume state if one exists")
     args = parser.parse_args()

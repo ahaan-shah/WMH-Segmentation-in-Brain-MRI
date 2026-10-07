@@ -1,7 +1,7 @@
 {
-  "generating_script": "code/features/run_features.py",
+  "generating_script": "code/classification/explore.py",
   "git_commit": "80e8185f41c915dcce3ccd63bb5223414c13789e-dirty",
-  "timestamp_utc": "2026-10-07T10:30:51.630752+00:00",
+  "timestamp_utc": "2026-10-07T11:19:10.065424+00:00",
   "config": {
     "seed": 42,
     "labels": {
@@ -70,13 +70,64 @@
       "week1_prototype_method": "flair_intensity_threshold"
     },
     "severity_classification": {
-      "candidate_routes": [
-        "tertiles",
-        "fazekas_anchored",
-        "regression_then_threshold"
+      "target_source": "reference",
+      "scheme": "fazekas_volume_4class",
+      "cutoffs_ml": [
+        3.4,
+        9.6,
+        17.1
       ],
-      "recommended_route": "regression_then_threshold",
-      "min_subjects_per_class": 8
+      "classes": [
+        "normal",
+        "mild",
+        "moderate",
+        "severe"
+      ],
+      "sensitivity_scheme": "fazekas_volume_3class_merged",
+      "sensitivity_cutoffs_ml": [
+        9.6,
+        17.1
+      ],
+      "sensitivity_classes": [
+        "normal_or_mild",
+        "moderate",
+        "severe"
+      ],
+      "min_subjects_per_class": 8,
+      "feature_source": "loso_prediction",
+      "feature_set_volume_only": [
+        "log_total_volume"
+      ],
+      "feature_set_full": [
+        "log_total_volume",
+        "periventricular_fraction",
+        "abs_laterality_index",
+        "log_lesion_count",
+        "small_lesion_fraction",
+        "largest_lesion_share"
+      ],
+      "baselines": [
+        "majority_class",
+        "threshold_rule_on_predicted_volume"
+      ],
+      "models": [
+        "regression_then_threshold",
+        "ordinal_logistic",
+        "multinomial_logistic",
+        "random_forest"
+      ],
+      "experiments": [
+        "volume_only",
+        "full_features"
+      ],
+      "cross_validation": "repeated_stratified_kfold",
+      "cv_folds": 5,
+      "cv_repeats": 10,
+      "primary_metrics": [
+        "quadratic_weighted_kappa",
+        "mean_absolute_class_error",
+        "balanced_accuracy"
+      ]
     },
     "evaluation": {
       "vendored_script": "checks/evaluation.py",
@@ -286,13 +337,6 @@
     }
   },
   "extra": {
-    "note": "R5-R9. Prediction-side features must be regenerated if the segmentation model changes.",
-    "r5_primary_mm": 10.0,
-    "r5_sensitivity_mm": [
-      5.0,
-      10.0,
-      15.0
-    ],
-    "r5_source": "SynthSeg on raw T1 (selected by sweep)"
+    "note": "EDA only. NOT a classifier input \u2014 features here are reference-derived, and the prediction volume is in-sample for 48 of 60 subjects."
   }
 }
