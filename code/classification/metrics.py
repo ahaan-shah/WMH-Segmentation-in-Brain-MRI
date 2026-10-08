@@ -136,3 +136,52 @@ def per_group(score, y_true, y_pred, groups, n_classes: int) -> dict:
     y_true, y_pred, groups = map(np.asarray, (y_true, y_pred, groups))
     return {group: score(y_true[groups == group], y_pred[groups == group], n_classes)
             for group in sorted(set(groups.tolist()))}
+
+
+def one_vs_rest(y_true, y_pred, n_classes: int) -> dict:
+    """Each class treated as "this class vs every other": the binary scores.
+
+    Precision, recall (= sensitivity), specificity, false-positive rate and F1
+    per class, plus their unweighted mean (macro). Specificity and FPR are
+    binary ideas; one-vs-rest is how they extend to four classes. They are
+    reported for completeness and comparison — NOT used to choose a method,
+    because none of them knows the classes are ordered (calling severe
+    "normal" and "moderate" are the same one-vs-rest error).
+    """
+    matrix = confusion(y_true, y_pred, n_classes).astype(float)
+    total = matrix.sum()
+    tp = np.diag(matrix)
+    fp = matrix.sum(axis=0) - tp
+    fn = matrix.sum(axis=1) - tp
+    tn = total - tp - fp - fn
+    with np.errstate(divide="ignore", invalid="ignore"):
+        precision = np.where(tp + fp > 0, tp / (tp + fp), np.nan)
+        recall = np.where(tp + fn > 0, tp / (tp + fn), np.nan)
+        specificity = np.where(tn + fp > 0, tn / (tn + fp), np.nan)
+        f1 = np.where(precision + recall > 0,
+                      2 * precision * recall / (precision + recall), np.nan)
+    table = {"precision": precision, "recall": recall, "specificity": specificity,
+             "false_positive_rate": 1 - specificity, "f1": f1}
+    table["macro"] = {name: float(np.nanmean(values)) for name, values in table.items()}
+    return table
+
+
+def at_or_above(y_true, y_pred, n_classes: int, level: int) -> dict:
+    """The grade read as a yes/no question: "is this patient at `level` or worse?"
+
+    That is the question each of Joo et al.'s cut-offs answers (3.4 mL: mild or
+    worse; 9.6 mL: moderate or worse; 17.1 mL: severe), and the form in which
+    they report sensitivity and specificity — so these numbers are the ones a
+    reader can put beside the paper's.
+    """
+    y_true, y_pred = _validate(y_true, y_pred, n_classes)
+    if not 1 <= level < n_classes:
+        raise ValueError(f"level must be 1..{n_classes - 1}")
+    truth, called = y_true >= level, y_pred >= level
+    tp, tn = int(np.sum(truth & called)), int(np.sum(~truth & ~called))
+    fp, fn = int(np.sum(~truth & called)), int(np.sum(truth & ~called))
+    return {"sensitivity": tp / (tp + fn) if tp + fn else float("nan"),
+            "specificity": tn / (tn + fp) if tn + fp else float("nan"),
+            "false_positive_rate": fp / (tn + fp) if tn + fp else float("nan"),
+            "accuracy": (tp + tn) / len(y_true),
+            "positives": tp + fn, "negatives": tn + fp}

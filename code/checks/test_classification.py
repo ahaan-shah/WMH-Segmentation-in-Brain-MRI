@@ -646,3 +646,38 @@ def test_figures_render_on_synthetic_results(tmp_path, data, folds):
     for name, fig in figs.items():
         path = mo._save(fig, name, "synthetic", None, root=tmp_path)
         assert path.stat().st_size > 10_000
+
+
+# ---------------------------------------------------------------------------
+# the one-vs-rest and cut-off scores (added with the metrics write-up)
+# ---------------------------------------------------------------------------
+def test_one_vs_rest_matches_sklearn_and_hand_counts():
+    from sklearn.metrics import f1_score, precision_score, recall_score
+
+    rng = np.random.default_rng(7)
+    y_true, y_pred = rng.integers(0, 4, 80), rng.integers(0, 4, 80)
+    table = metrics.one_vs_rest(y_true, y_pred, 4)
+    np.testing.assert_allclose(table["precision"],
+                               precision_score(y_true, y_pred, average=None, labels=range(4)))
+    np.testing.assert_allclose(table["recall"],
+                               recall_score(y_true, y_pred, average=None, labels=range(4)))
+    np.testing.assert_allclose(table["f1"], f1_score(y_true, y_pred, average=None, labels=range(4)))
+    assert table["macro"]["f1"] == pytest.approx(f1_score(y_true, y_pred, average="macro"))
+    # specificity by hand for class 0: true negatives / all actual negatives
+    negatives = y_true != 0
+    expected = np.mean(y_pred[negatives] != 0)
+    assert table["specificity"][0] == pytest.approx(expected)
+    np.testing.assert_allclose(table["false_positive_rate"], 1 - table["specificity"])
+
+
+def test_at_or_above_reads_the_grade_as_a_cutoff_question():
+    y_true = np.array([0, 1, 2, 3, 2, 1])
+    y_pred = np.array([0, 2, 2, 3, 1, 1])
+    out = metrics.at_or_above(y_true, y_pred, 4, level=2)   # "moderate or worse?"
+    # truth >=2: patients 2,3,4 ; called >=2: patients 1,2,3
+    assert out["sensitivity"] == pytest.approx(2 / 3)
+    assert out["specificity"] == pytest.approx(2 / 3)
+    assert out["false_positive_rate"] == pytest.approx(1 / 3)
+    assert out["accuracy"] == pytest.approx(4 / 6)
+    with pytest.raises(ValueError):
+        metrics.at_or_above(y_true, y_pred, 4, level=0)

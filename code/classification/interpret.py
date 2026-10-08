@@ -33,8 +33,8 @@ from functools import partial
 import numpy as np
 import pandas as pd
 
-from classification.metrics import (per_class_precision_recall_f1, per_group,
-                                    score_all)
+from classification.metrics import (at_or_above, one_vs_rest,
+                                    per_class_precision_recall_f1, per_group, score_all)
 from classification.models import LEARNED, build
 from classification.protocol import (build_dataset, make_folds, permutation_importance_cv,
                                      pooled_confusion)
@@ -189,6 +189,45 @@ def main() -> None:
                 logger.info("    recall by class: %s", {c: (round(v["recall"], 2)
                                                             if v["recall"] is not None else None)
                                                         for c, v in profile["per_class"].items()})
+    # --- one-vs-rest and cut-off scores (reported, never selecting) ----------
+    # The binary scores readers expect — F1, specificity, false-positive rate —
+    # per class, and the grade read at each Joo cut-off as a yes/no question,
+    # beside the paper's own test-set figures at 9.6 mL.
+    _, classes = SCHEMES["4class"]
+    joo = SEVERITY_CONFIG["joo_reported_test_set"]["moderate_or_worse_at_9_6_ml"]
+    binary_rows, cutoff_rows = [], []
+    for cid in ids:
+        oof = load_oof(cid, "4class")
+        y_true, y_pred = oof.y_true.to_numpy(), oof.y_pred.to_numpy()
+        table = one_vs_rest(y_true, y_pred, len(classes))
+        for i, cls in enumerate(classes):
+            binary_rows.append({"candidate": cid, "class": cls,
+                                **{k: float(table[k][i]) for k in
+                                   ("precision", "recall", "specificity",
+                                    "false_positive_rate", "f1")}})
+        binary_rows.append({"candidate": cid, "class": "macro", **table["macro"]})
+        for level, question in enumerate(("mild or worse", "moderate or worse",
+                                          "severe"), start=1):
+            row = at_or_above(y_true, y_pred, len(classes), level)
+            cutoff_rows.append({"candidate": cid, "question": question,
+                                "cutoff_ml": SCHEMES["4class"][0][level - 1], **row})
+    for name, rows in (("one_vs_rest.csv", binary_rows),
+                       ("at_each_cutoff.csv", cutoff_rows)):
+        path = INTERPRETATION_DIR / name
+        pd.DataFrame(rows).to_csv(path, index=False)
+        write_manifest(path, generating_script=GENERATING,
+                       extra={"pooled_over": "all 10 repeats",
+                              "joo_reported_moderate_or_worse_at_9_6_ml": joo,
+                              "note": "reported only; selection uses QWK"})
+    logger.info("one-vs-rest, selected method:\n%s",
+                pd.DataFrame(binary_rows).query("candidate == @selection['selected']")
+                .round(3).to_string(index=False))
+    logger.info("at each cut-off, selected method (Joo et al. test set at 9.6 mL: "
+                "sensitivity %.3f, specificity %.3f, accuracy %.3f):\n%s",
+                joo["sensitivity"], joo["specificity"], joo["accuracy"],
+                pd.DataFrame(cutoff_rows).query("candidate == @selection['selected']")
+                .round(3).to_string(index=False))
+
     path = INTERPRETATION_DIR / "error_profiles.json"
     path.write_text(json.dumps(profiles, indent=2, default=float))
     write_manifest(path, generating_script=GENERATING)

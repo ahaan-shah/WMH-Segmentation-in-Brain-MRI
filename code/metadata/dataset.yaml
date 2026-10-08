@@ -268,6 +268,16 @@ severity_classification:
   # volume that radiologists in Joo et al. graded as mild disease — within
   # what is expected for age — not "no lesions".
 
+  joo_reported_test_set:
+    # Joo et al.'s own held-out (n = 204) performance at their 9.6 mL cut-off,
+    # as printed in the paper — the one cut-off they validated on a test set.
+    # Used ONLY as a reference line beside our at-or-above-moderate numbers
+    # (classification/interpret.py); never as a target or a selection input.
+    # Their volumes came from a commercial CNN on 4 mm single-site scans;
+    # ours from our own segmentation on three sites — comparable in form, not
+    # in conditions.
+    moderate_or_worse_at_9_6_ml: {sensitivity: 0.964, specificity: 0.899, accuracy: 0.917}
+
   sensitivity_scheme: fazekas_volume_3class_merged
   sensitivity_cutoffs_ml: [9.6, 17.1]
   sensitivity_classes: [normal_or_mild, moderate, severe]
