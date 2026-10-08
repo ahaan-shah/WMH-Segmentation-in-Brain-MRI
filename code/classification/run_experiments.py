@@ -197,9 +197,11 @@ def main() -> None:
                                                ignore_index=True), confusions, data,
                     {"features": features})
 
-    logger.info("done. Next: %s", "python -m classification.select (needs both "
-                "experiments)" if set(args.experiments) == set(FEATURE_SETS)
-                else "run the remaining experiment, then classification.select")
+    # Judged from what is ON DISK, not from this run's arguments: Week 6 runs
+    # full_features alone, after Week 5's volume_only is already saved.
+    missing = [e for e in FEATURE_SETS if not (EXPERIMENTS_DIR / f"oof_{e}.csv").exists()]
+    logger.info("done. Next: %s", f"run --experiments {' '.join(missing)}, then "
+                "classification.select" if missing else "python -m classification.select")
 
 
 if __name__ == "__main__":
