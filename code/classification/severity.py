@@ -119,3 +119,35 @@ def derive_features(table: pd.DataFrame) -> pd.DataFrame:
             raise AssertionError(f"{name} outside [0, 1] — a proportion cannot be; "
                                  f"check the Week 4 columns it is built from")
     return out[list(FEATURE_NAMES)]
+
+
+def merge_to_three_class(class4) -> np.ndarray:
+    """The 3-class sensitivity scheme, as a pure function of the 4-class label.
+
+    normal and mild collapse into one class; moderate and severe keep their
+    meaning and shift down one index. MERGING, never relabelling: no patient's
+    clinical meaning changes, which is the point of the sensitivity scheme
+    (dataset.yaml `sensitivity_scheme`). The experiment driver asserts this
+    equals `assign_class(volume, sensitivity_cutoffs_ml)` for every patient, so
+    the config and this function cannot drift apart silently.
+    """
+    class4 = np.asarray(class4)
+    if class4.size and (class4.min() < 0 or class4.max() > 3):
+        raise ValueError("4-class labels must be in 0..3")
+    return np.maximum(class4 - 1, 0)
+
+
+def near_cutoff(volume_ml, cutoffs_ml, band: float) -> np.ndarray:
+    """True where a volume sits within a relative `band` of any cut-off.
+
+    The same definition the EDA used for its 14 "boundary patients": within one
+    median held-out measurement error (band = 0.129) of a cut-off c means
+    c / (1 + band) <= v <= c * (1 + band). An ordinary measurement error can
+    move such a patient across the line, so no classifier can be expected to
+    place them reliably; they are scored separately.
+    """
+    volume_ml = np.asarray(volume_ml, dtype=float)
+    if band < 0:
+        raise ValueError("band must be non-negative")
+    return np.array([any(c / (1 + band) <= v <= c * (1 + band) for c in cutoffs_ml)
+                     for v in volume_ml], dtype=bool)
