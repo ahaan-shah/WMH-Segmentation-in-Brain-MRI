@@ -37,6 +37,7 @@ from metadata.derived import PRED_WMH, derived_path, save_derived
 from metadata.loader import load_split, subjects_by_key
 from metadata.provenance import write_manifest
 from metadata.runlog import setup_logging
+from metadata.split_outputs import split_output
 from segmentation.dataset import load_subject_slices, undo_pad_or_crop
 from segmentation.unet import UNet
 
@@ -123,6 +124,7 @@ def main() -> None:
                              "(default %(default)s, from dataset.yaml)")
     parser.add_argument("--no-tta", action="store_true")
     args = parser.parse_args()
+    qc_csv = split_output(QC_CSV, args.splits)   # never overwrite the 60's table
 
     OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
     logger = setup_logging(SCRIPT_NAME, OUTPUTS_DIR)
@@ -155,8 +157,8 @@ def main() -> None:
             logger.info("  %d/%d", index, len(keys))
 
     table = pd.DataFrame(rows)
-    table.to_csv(QC_CSV, index=False)
-    write_manifest(QC_CSV, generating_script=f"code/segmentation/{SCRIPT_NAME}.py")
+    table.to_csv(qc_csv, index=False)
+    write_manifest(qc_csv, generating_script=f"code/segmentation/{SCRIPT_NAME}.py")
 
     pd.set_option("display.width", 250)
     logger.info("all %d subjects in this run:\n    %s", len(table),

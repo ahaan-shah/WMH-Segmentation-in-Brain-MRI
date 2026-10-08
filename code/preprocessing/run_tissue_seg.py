@@ -54,6 +54,7 @@ from metadata.geometry import assert_same_geometry, voxel_spacing_mm
 from metadata.loader import load_nifti, load_split, load_wmh_mask, subjects_by_key
 from metadata.provenance import write_manifest
 from metadata.runlog import setup_logging
+from metadata.split_outputs import split_output
 from preprocessing.bias_field import correct_bias_field
 from preprocessing.tissue_seg import (
     LABEL_WM,
@@ -122,6 +123,7 @@ def main() -> None:
                         choices=["train", "val", "test"])
     parser.add_argument("--method", default=None, help="Override the configured method.")
     args = parser.parse_args()
+    qc_csv = split_output(QC_CSV, args.splits)   # never overwrite the 60's table
 
     OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
     logger = setup_logging(SCRIPT_NAME, OUTPUTS_DIR)
@@ -153,9 +155,9 @@ def main() -> None:
         )
 
     table = pd.DataFrame(rows).sort_values(["site", "subject_key"])
-    table.to_csv(QC_CSV, index=False)
-    write_manifest(QC_CSV, generating_script=f"code/preprocessing/{SCRIPT_NAME}.py")
-    logger.info("wrote %s", QC_CSV)
+    table.to_csv(qc_csv, index=False)
+    write_manifest(qc_csv, generating_script=f"code/preprocessing/{SCRIPT_NAME}.py")
+    logger.info("wrote %s", qc_csv)
 
     pd.set_option("display.width", 250)
     logger.info("per-site tissue fractions:\n%s", table.groupby("site")[

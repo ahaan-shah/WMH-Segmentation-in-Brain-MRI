@@ -52,6 +52,7 @@ from metadata.geometry import voxel_volume_mm3
 from metadata.loader import load_nifti, load_split, load_wmh_mask, subjects_by_key
 from metadata.provenance import write_manifest
 from metadata.runlog import setup_logging
+from metadata.split_outputs import split_output
 from features.lesion_features import extract_features
 from features.periventricular import summarise as periventricular_summary
 
@@ -70,15 +71,12 @@ def output_csv_for(splits) -> Path:
     Found 2026-10-08 while preparing the Week 7 handoff: with a single output
     path, Week 7's `--splits test` would have overwritten the 60 subjects'
     table — and with it every classifier input and the Week 4 results — with
-    the 110 test rows. Mixing the two in one run is refused outright, so a
-    test-set row can never sit in the file the classifier trains from.
+    the 110 test rows. The rule now lives in `metadata.split_outputs`, shared
+    with every other driver that writes a per-run table.
     """
-    splits = set(splits)
-    if "test" in splits and splits - {"test"}:
-        raise SystemExit("--splits test cannot be combined with train/val: the sealed "
-                         "test set is written to its own file and never mixed into the "
-                         "table the classifier trains on")
-    return TEST_FEATURES_CSV if splits == {"test"} else FEATURES_CSV
+    path = split_output(FEATURES_CSV, splits)
+    assert path in (FEATURES_CSV, TEST_FEATURES_CSV)
+    return path
 
 
 def main() -> None:

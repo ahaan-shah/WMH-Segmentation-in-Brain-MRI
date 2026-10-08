@@ -53,6 +53,7 @@ from metadata.geometry import assert_same_geometry
 from metadata.loader import load_nifti, load_split, load_wmh_mask, subjects_by_key
 from metadata.provenance import write_manifest
 from metadata.runlog import setup_logging
+from metadata.split_outputs import split_output
 
 SCRIPT_NAME = "run_synthseg"
 OUTPUTS_DIR = CODE_ROOT / "features" / "outputs"
@@ -168,6 +169,7 @@ def main() -> None:
     parser.add_argument("--redo", action="store_true",
                         help="re-segment subjects that already have a ventricle mask")
     args = parser.parse_args()
+    qc_csv = split_output(QC_CSV, args.splits)   # never overwrite the 60's table
 
     OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
     logger = setup_logging(SCRIPT_NAME, OUTPUTS_DIR)
@@ -251,8 +253,8 @@ def main() -> None:
         raise SystemExit(f"QC table is missing {len(uncovered)} subject(s): "
                          f"{uncovered[:5]}. Refusing to report summary statistics "
                          f"that claim to cover the cohort but do not.")
-    table.to_csv(QC_CSV, index=False)
-    write_manifest(QC_CSV, generating_script=f"code/features/{SCRIPT_NAME}.py")
+    table.to_csv(qc_csv, index=False)
+    write_manifest(qc_csv, generating_script=f"code/features/{SCRIPT_NAME}.py")
 
     logger.info("=" * 72)
     logger.info("lateral ventricle volume by site (mL):\n%s",
@@ -268,7 +270,7 @@ def main() -> None:
     logger.info("this is removed before the distance transform — see "
                 "code/features/periventricular.py")
     logger.info("total runtime %.0f min", table.seconds.sum() / 60)
-    logger.info("written: %s", QC_CSV.name)
+    logger.info("written: %s", qc_csv.name)
 
     if failed:
         raise SystemExit(

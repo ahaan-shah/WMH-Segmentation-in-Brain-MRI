@@ -552,6 +552,34 @@ evaluation:
     before scoring. Net effect: label-2 regions are "don't care" — a
     prediction there is neither a true positive nor a false positive.
 
+  # --- Week 7 decisions, made 2026-10-08 by the user BEFORE the sealed 110 were
+  # opened (CLAUDE.md Section 16). Recorded here so they cannot be revisited
+  # after the results exist. ---------------------------------------------------
+  ssim:
+    decision: report_week2_findings_only
+    # Option (a) of the two put to the user. SSIM is NOT computed on the 110.
+    # The Week 7 brief names SSIM, so the report addresses it — by reporting the
+    # Week 2 measurement as this project's SSIM evaluation and explaining why it
+    # is the wrong tool for lesions: SSIM averages similarity over the whole
+    # image, lesions are well under 1% of brain voxels (0.217% of training
+    # slices), so it scored a filter 0.981 ("unchanged") while that filter
+    # destroyed 399 lesions. Showing a metric's blind spot is the point; adding
+    # SSIM numbers known to be misleading would not be.
+    # (Decision #5, Week 1: SSIM is for pre-processing quality, never masks.)
+    rejected: compute_ssim_per_test_scanner
+  empty_prediction:
+    decision: zero_volume_graded_normal_and_reported
+    # If the production model marks NO lesion voxels for a test subject, its
+    # predicted volume is 0 mL. The frozen grader (the threshold rule) needs
+    # only volume, and 0 mL < 3.4 mL is "normal" by the rule's own logic — so
+    # the subject is graded normal, kept in every table, and NAMED in the report
+    # with its true class. Segmentation scores it as it is (Dice 0; H95
+    # undefined and counted, per checks/official_score.py).
+    # Not substituted, imputed or dropped. Implementation (classification/
+    # apply_frozen.py must not require the five pattern features for the
+    # threshold rule, which currently raise on an empty segmentation) is
+    # CLAUDE.md 16.1 item 7.
+
 # ---------------------------------------------------------------------------
 # Week 2 — pre-processing (R1 skull stripping, R2 normalisation, R3 bias field)
 # ---------------------------------------------------------------------------

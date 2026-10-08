@@ -31,6 +31,7 @@ from metadata.derived import (
 from metadata.loader import load_split, load_wmh_mask, subjects_by_key
 from metadata.provenance import write_manifest
 from metadata.runlog import setup_logging
+from metadata.split_outputs import split_output
 from preprocessing.normalise import (
     METHODS,
     fixed_threshold_transfers,
@@ -91,6 +92,8 @@ def main() -> None:
     parser.add_argument("--splits", nargs="+", default=["train", "val"],
                         choices=["train", "val", "test"])
     args = parser.parse_args()
+    qc_csv = split_output(QC_CSV, args.splits)   # never overwrite the 60's table
+    comparison_csv = split_output(COMPARISON_CSV, args.splits)   # never overwrite the 60's table
 
     OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
     logger = setup_logging(SCRIPT_NAME, OUTPUTS_DIR)
@@ -116,12 +119,12 @@ def main() -> None:
                     "n/a" if "dice" not in saved else f"{saved['dice']:.3f}")
 
     table = pd.DataFrame(saved_rows).sort_values(["site", "subject_key"])
-    table.to_csv(QC_CSV, index=False)
-    write_manifest(QC_CSV, generating_script=f"code/preprocessing/{SCRIPT_NAME}.py")
+    table.to_csv(qc_csv, index=False)
+    write_manifest(qc_csv, generating_script=f"code/preprocessing/{SCRIPT_NAME}.py")
 
     comparison = pd.DataFrame(comparison_rows)
-    comparison.to_csv(COMPARISON_CSV, index=False)
-    write_manifest(COMPARISON_CSV, generating_script=f"code/preprocessing/{SCRIPT_NAME}.py")
+    comparison.to_csv(comparison_csv, index=False)
+    write_manifest(comparison_csv, generating_script=f"code/preprocessing/{SCRIPT_NAME}.py")
 
     pd.set_option("display.width", 250)
 

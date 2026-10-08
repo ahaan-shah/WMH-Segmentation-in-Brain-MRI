@@ -681,3 +681,48 @@ def test_at_or_above_reads_the_grade_as_a_cutoff_question():
     assert out["accuracy"] == pytest.approx(4 / 6)
     with pytest.raises(ValueError):
         metrics.at_or_above(y_true, y_pred, 4, level=0)
+
+
+# ---------------------------------------------------------------------------
+# Week 7 preparation — the sealed set never overwrites the 60's tables
+# ---------------------------------------------------------------------------
+def test_split_output_keeps_train_names_and_suffixes_test(tmp_path):
+    from metadata.split_outputs import split_output
+
+    path = tmp_path / "stage1_head_mask_qc.csv"
+    assert split_output(path, ["train", "val"]) == path
+    assert split_output(path, ["val"]) == path
+    assert split_output(path, ["test"]) == tmp_path / "stage1_head_mask_qc_test.csv"
+    for mixed in (["train", "test"], ["val", "test"], ["train", "val", "test"]):
+        with pytest.raises(SystemExit):
+            split_output(path, mixed)
+    with pytest.raises(ValueError):
+        split_output(path, [])
+
+
+@pytest.mark.parametrize("module", [
+    "preprocessing.run_head_mask", "preprocessing.run_bias_field",
+    "preprocessing.run_skull_strip", "preprocessing.run_tissue_seg",
+    "preprocessing.run_normalise", "segmentation.run_ensemble",
+    "features.run_synthseg", "features.run_features"])
+def test_every_driver_routes_its_tables_through_split_output(module):
+    """A test run of any driver must not write to a train/val table.
+
+    Static check on the source: every per-run CSV constant is resolved through
+    split_output before use, and never written to directly. Running the
+    drivers here would need the data; this guards the code path that matters.
+    """
+    import importlib
+    import inspect
+    import re
+
+    source = inspect.getsource(importlib.import_module(module))
+    constants = re.findall(r"^(\w+_CSV) = OUTPUTS_DIR", source, flags=re.M)
+    assert constants, f"{module}: no per-run CSV constant found"
+    main = source[source.index("def main"):]
+    for constant in constants:
+        if constant == "TEST_FEATURES_CSV":
+            continue
+        direct_writes = re.findall(rf"(?:to_csv|write_manifest)\(\s*{constant}\b", main)
+        assert not direct_writes, f"{module} writes {constant} directly"
+    assert "split_output" in source or "output_csv_for" in main
