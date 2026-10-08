@@ -61,6 +61,13 @@ PRED_WMH = "pred_wmh"  # the predicted lesion mask (R4) — what Week 4 measures
 VENTRICLES = "ventricles"  # SynthSeg lateral + inferior-lateral ventricles,
                            # on the FLAIR grid. R5 measures distance from this.
 
+# --- Weeks 5-6 ---
+PRED_WMH_LOSO = "pred_wmh_loso"  # each training subject segmented by the
+                                 # leave-one-site-out network that never saw
+                                 # its hospital — the honest source of the
+                                 # classifier's features. Train+val only; never
+                                 # exists for the 110 test subjects.
+
 
 # Where each artefact lives. The split is by ROLE, not by the stage that made
 # it: `data/processed/` holds only what a later week actually consumes, and
@@ -91,6 +98,7 @@ ARTEFACT_ROOTS = {
     PRED_WMH: DATA_PROCESSED,  # R4 — consumed by W4 (features) and W7 (scoring)
     VENTRICLES: DATA_PROCESSED,  # R5 — the reference structure the 10 mm rule
                                  # measures from; consumed by W4 and W5-6
+    PRED_WMH_LOSO: DATA_PROCESSED,  # consumed by W5-6 (features.run_features)
 }
 
 
@@ -194,7 +202,13 @@ def save_derived(
     # and the next run would skip it and carry corrupt data forward silently.
     # A truncated mask still yields a distance transform and still yields
     # numbers, which is what makes it dangerous rather than merely broken.
-    staging = out_path.with_name(out_path.name + ".partial")
+    #
+    # The marker goes BEFORE the extension (`x.partial.nii.gz`), not after it:
+    # nibabel picks the format from the extension and raises on
+    # `x.nii.gz.partial`. That first version was added at the end of Week 4,
+    # after every Week 4 volume had been saved, so it never ran until Phase A1
+    # (2026-10-08) crashed on its first write — before writing anything.
+    staging = out_path.with_name(f"{name}.partial.nii.gz")
     nib.save(out_img, staging)
     staging.replace(out_path)
 

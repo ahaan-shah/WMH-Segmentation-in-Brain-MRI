@@ -289,8 +289,10 @@ severity_classification:
   # trivially inverts its own target (ROADMAP 8.2 identified the trap; it is
   # correct). And not from the production ensemble's predictions: 48 of the
   # 60 are subjects those networks TRAINED on, so their measurements are
-  # in-sample. A plain threshold on predicted volume scores 100% on those 48
-  # but 75% on the 12 validation subjects. Features therefore come from the
+  # in-sample. A plain threshold on predicted volume scores 92% (44 of 48) on
+  # those 48 but 75% on the 12 validation subjects. Features therefore come from the
+  # [Corrected 2026-10-08: this line first said "100%", written before the EDA
+  # measured it; classification/outputs/eda_summary.json holds 0.9167.]
   # Week 3 leave-one-site-out networks: each site's 20 subjects segmented by
   # the network that never saw that site — honest for all 60, and harder than
   # in-sample, which is the condition Week 7 faces.
@@ -303,6 +305,32 @@ severity_classification:
   # would remove it (~3.6 h GPU); judged not worth it for an effect limited to
   # choosing among a handful of saved epochs. Stated in the Week 5 limitations.
   loso_epoch_selection_caveat: accepted_and_stated
+
+  loso_predictions:
+    # How the leave-one-site-out features are produced
+    # (segmentation/run_loso_predictions.py). Set 2026-10-08, before the script
+    # was ever run. Inference is IDENTICAL to production
+    # (segmentation/run_ensemble.predict: soft probability, left-right TTA,
+    # threshold UNET_CONFIG.ensemble_probability_threshold, brain-mask clip), so
+    # the network is the only difference from what Week 7 runs.
+    checkpoints:                  # the AUGMENTED runs, as in production
+      Amsterdam: unet_loso_amsterdam_aug.pt
+      Singapore: unet_loso_singapore_aug.pt
+      Utrecht: unet_loso_utrecht_aug.pt
+    test_time_augmentation: true
+    expected_dice_by_site:        # segmentation.domain_generalisation, Week 3
+      Amsterdam: 0.7792
+      Singapore: 0.7981
+      Utrecht: 0.7612
+    dice_agreement_tolerance: 0.03
+    # Week 3's numbers were computed in memory (train_unet.validate), without
+    # TTA; these are scored by the official scorer, with TTA. Expected to land
+    # close, not identical. A site more than 0.03 away means the wrong network
+    # was applied or the inference path differs — the script stops, it does
+    # not report. Chosen before the run: TTA moved Dice +0.001 in Week 4, so
+    # 0.03 is ~30x that, wide enough for scorer differences and narrow enough
+    # to catch a mismatched checkpoint (a network applied to a site it trained
+    # on would score ~0.85+, Week 4 all-60 Dice 0.8475).
 
   feature_set_volume_only: [log_total_volume]
   feature_set_full:
@@ -387,10 +415,20 @@ severity_classification:
                                   # Joo cut-offs are applied to the prediction
       tune: {alpha: [0.01, 0.1, 1.0, 10.0, 100.0]}
     ordinal_logistic:
-      implementation: decided_at_build   # statsmodels OrderedModel if it
-      # installs on Python 3.14, otherwise the Frank & Hall cumulative-binary
-      # construction from scikit-learn parts. Chosen by installability, not by
-      # results, and recorded here when made.
+      implementation: statsmodels_ordered_model
+      # DECIDED 2026-10-08 by installability, before any fit: statsmodels
+      # 0.15.0 installs from a cp314 binary wheel and imports OrderedModel
+      # cleanly, so the Frank & Hall fallback was not needed. Pinned in
+      # deliverables/jnoteboooks/requirements.txt.
+      statsmodels_version: "0.15.0"
+      distribution: logit         # proportional-odds (cumulative logit) model
+      fit_method: bfgs
+      max_iterations: 1000
+      tune: none
+      # Unpenalised: OrderedModel has no penalty term. A fit that fails to
+      # converge is COUNTED and reported per candidate, never silently kept
+      # as if it had; non-finite coefficients raise.
+      prediction: most_probable_class
     multinomial_logistic:
       class_weight: balanced      # thin classes (8, 9) must not be ignored
       tune: {C: [0.01, 0.1, 1.0, 10.0, 100.0]}
@@ -405,6 +443,15 @@ severity_classification:
       # one-parameter models unequal. Conservative fixed settings instead.
   inner_cv_folds: 5               # tuning happens INSIDE each outer training
                                   # fold (nested CV), scored on QWK
+  inner_cv_score_unit: pooled_out_of_fold
+  # Same unit as the outer selection score: the inner folds' predictions are
+  # pooled and one QWK computed, not averaged across ~10-patient folds.
+  tuning_tiebreak: strongest_regularisation
+  # Set 2026-10-08 while building, before any fit: when two grid values tie on
+  # inner QWK (likely — QWK on ~48 patients moves in coarse steps), take the
+  # more regularised one (larger ridge alpha, smaller logistic C). The simpler
+  # fit wins a tie, the same principle as the selection tiers below.
+  random_state: seed              # forest and every CV splitter use SEED
 
   # --- HOW THE FINAL OPTION IS CHOSEN ----------------------------------------
   # Fixed 2026-10-07, before any model was fitted. Ten-odd candidates are run;
@@ -449,6 +496,11 @@ severity_classification:
       # A model that wins overall by doing much better on one hospital and worse
       # on the others has partly learned the hospital. Per-site QWK, same
       # pooled out-of-fold predictions.
+      per_site_tie_tolerance: 0.0
+      # Made explicit 2026-10-08 while building, before any fit: "ties" means
+      # the challenger's mean per-site QWK is >= the incumbent's, exactly. The
+      # rule as written gave no tolerance, so none is invented here. Flagged
+      # to the user as the one reading of the rule that had to be chosen.
     within_tier_tiebreak: >
       Inside a tier, any candidate within one bootstrap SE of the tier's best is
       treated as tied with it, and the most interpretable tied candidate is put
@@ -462,6 +514,17 @@ severity_classification:
       - per_site_scores
       - boundary_patient_errors   # the 14 within median measurement error of a
                                   # cut-off (EDA), scored separately
+    interpretation:
+      # Set 2026-10-08 while building, before any fit (classification/interpret.py).
+      candidates: [selected, threshold_rule, each_tier_best, each_tier_put_forward]
+      permutation_importance: held_out_folds
+      # Importance is the drop in pooled out-of-fold QWK when one feature is
+      # shuffled among the TEST patients of each fold — never measured on the
+      # training data, which rewards whatever a model memorised. Model-agnostic,
+      # so the forest and the linear models are read on the same scale.
+      permutation_repeats: 10
+      coefficients_from: refit_on_all_60   # standardised, linear models only;
+                                           # descriptive, not a performance claim
     final_model: >
       The selected configuration is refit once on all 60 subjects'
       leave-one-site-out features and frozen. Its CV score is reported as an

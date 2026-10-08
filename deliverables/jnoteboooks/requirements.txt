@@ -43,3 +43,8 @@ torchvision==0.29.0+cu130
 HD_BET==2.0.1          # nnU-Net based, multi-contrast
 nnunetv2==2.8.1        # pulled in by HD_BET; pinned so the pair stays consistent
 deepbet==1.0.2         # fast alternative, has built-in mask dilation
+
+# --- Weeks 5-6 severity classification ---
+statsmodels==0.15.0    # OrderedModel: the ordinal (proportional-odds) logistic
+                       # candidate. Installed from a cp314 wheel 2026-10-08;
+                       # pulls patsy==1.0.3 and formulaic==1.2.2

@@ -1,0 +1,27 @@
+{
+  "tolerance": 0.03,
+  "per_site": {
+    "Amsterdam": {
+      "n": 20,
+      "dice": 0.7815632314118721,
+      "expected": 0.7792,
+      "difference": 0.002363231411872113,
+      "within_tolerance": true
+    },
+    "Singapore": {
+      "n": 20,
+      "dice": 0.8014579796594477,
+      "expected": 0.7981,
+      "difference": 0.0033579796594476186,
+      "within_tolerance": true
+    },
+    "Utrecht": {
+      "n": 20,
+      "dice": 0.7618420473596057,
+      "expected": 0.7612,
+      "difference": 0.000642047359605713,
+      "within_tolerance": true
+    }
+  },
+  "passed": true
+}

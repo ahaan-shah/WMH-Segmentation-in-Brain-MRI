@@ -1,7 +1,7 @@
 {
-  "generating_script": "code/features/run_features.py",
+  "generating_script": "code/segmentation/run_loso_predictions.py",
   "git_commit": "1fa45f8e2cc527a9b9151c9a99bb8c8e33d409b0-dirty",
-  "timestamp_utc": "2026-10-08T12:59:02.923200+00:00",
+  "timestamp_utc": "2026-10-08T12:57:11.208092+00:00",
   "config": {
     "seed": 42,
     "labels": {
@@ -446,21 +446,5 @@
         "prediction"
       ]
     }
-  },
-  "extra": {
-    "note": "R5-R9. Prediction-side features must be regenerated if the segmentation model changes.",
-    "r5_primary_mm": 10.0,
-    "r5_sensitivity_mm": [
-      5.0,
-      10.0,
-      15.0
-    ],
-    "r5_source": "SynthSeg on raw T1 (selected by sweep)",
-    "sources": [
-      "loso_prediction",
-      "prediction",
-      "reference"
-    ],
-    "loso_prediction_rows_appended_last": 60
   }
 }
