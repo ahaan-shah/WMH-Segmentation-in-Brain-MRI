@@ -1,6 +1,6 @@
 # `code/` — all source for the WMH segmentation pipeline
 
-Five importable packages plus the one virtual environment everything runs from.
+Six importable packages plus the one virtual environment everything runs from.
 
 ```
 code/
@@ -11,7 +11,9 @@ code/
 │                    challenge scorer
 ├── preprocessing/   Week 2 — skull stripping, bias correction, normalisation
 ├── segmentation/    Week 3 — the threshold baseline and the U-Net
-└── features/        Week 4 — ventricles, the 10 mm split, lesion measurements
+├── features/        Week 4 — ventricles, the 10 mm split, lesion measurements
+└── classification/  Weeks 5-6 — severity classes, the experiments, the
+                     selection rule, the frozen grader
 ```
 
 Everything *not* source lives one level up, at the project root: `data/`,
@@ -42,9 +44,10 @@ Two things deliberately do not depend on it:
 Every command runs **from the project root**, not from inside `code/`:
 
 ```bash
-code/.venv/bin/python -m pytest -q                      # 92 tests
+code/.venv/bin/python -m pytest -q                      # 163 tests
 code/.venv/bin/python -m segmentation.train_unet        # train one network
 code/.venv/bin/python -m features.run_features          # R5-R9 measurements
+code/.venv/bin/python -m classification.run_experiments # R10 experiments
 bash code/segmentation/train_ensemble.sh 1 2 3          # queue three networks
 ```
 

@@ -1,0 +1,9 @@
+candidate,equation,feature,standardised_coefficient,tuned_value
+volume_only/ordinal_logistic,latent severity,log_total_volume,7.189974712387151,
+volume_only/regression_then_threshold,log volume,log_total_volume,1.0384330593892606,0.1
+full_features/ordinal_logistic,latent severity,log_total_volume,13.081181122733138,
+full_features/ordinal_logistic,latent severity,periventricular_fraction,0.49432798435466385,
+full_features/ordinal_logistic,latent severity,abs_laterality_index,-0.8129062720498966,
+full_features/ordinal_logistic,latent severity,log_lesion_count,-0.7484929277727953,
+full_features/ordinal_logistic,latent severity,small_lesion_fraction,1.698379204576899,
+full_features/ordinal_logistic,latent severity,largest_lesion_share,-1.6672449985163225,

@@ -2,7 +2,7 @@
 
 **BME 4408 — Medical Imaging**
 
-Progress report · Weeks 1–4 complete
+Progress report · Weeks 1–6 complete
 
 ---
 
@@ -38,7 +38,7 @@ Challenge** leaderboard.
 | R7 | Total lesion volume (burden) | ✅ Week 4 |
 | R8 | Largest lesion — diameter **and** volume | ✅ Week 4 |
 | R9 | Spatial distribution across hemispheres | ✅ Week 4 |
-| R10 | Mild / moderate / severe classification *(bonus)* | Weeks 5–6 |
+| R10 | Mild / moderate / severe classification *(bonus)* | ✅ Weeks 5–6 |
 | R11 | Benchmarked against the Challenge dataset | Week 7 |
 
 ---
@@ -118,6 +118,12 @@ comparison. Measured one at a time on identical patients:
 The small drop is entirely the cost of augmentation, and it buys roughly ten
 times as much on unfamiliar scanners — which is what the final evaluation
 measures. Without it, the hidden-hospital score was only 0.738.
+
+**Severity grading (Weeks 5–6):** the expert's lesion volume decides each
+patient's true class; our segmentation's volume decides the class we give. On
+volume measured by networks that never saw the patient's hospital, the plain
+clinical cut-offs grade **78% of patients exactly right and the rest one class
+off** (QWK **0.931**). No learned model beat them.
 
 For context: two human experts marking the same brain typically agree at
 **0.75–0.85**, and the challenge's winning entry scored **0.81**.
@@ -235,20 +241,73 @@ the results were seen.
   - Agreement with the experts: burden **0.984**, largest volume 0.956,
     count 0.946, diameter 0.932
 
+### Week 5 and 6 — Classifying (R10, bonus)
+
+- **Defined the classes from the clinic, not from the data**
+  - Four classes — *normal / mild / moderate / severe* — cut at **3.4 / 9.6 /
+    17.1 mL**, the volumes radiologists' Fazekas grades map to in
+    Joo et al., *PLOS ONE* 2022
+  - Splitting our 60 into equal thirds instead was rejected: a third only means
+    "worse than two thirds of these patients" and would move with any other
+    cohort
+  - Classes: **18 / 8 / 9 / 25** patients
+- **Measured honestly before classifying**
+  - Our production model had *trained* on 48 of the 60, so its volumes were
+    too good — 92% graded right on those 48, 75% on the 12 it never saw
+  - So every patient was re-measured by the network that **never saw their
+    hospital** (Dice 0.782, within 0.004 of Week 3 at every site)
+- **Fixed the rule for choosing a winner before running anything** — a more
+  complex model has to beat the simpler one by more than its own uncertainty,
+  *and* at two of three hospitals
+- **Tried four learned models, twice** — on volume alone, then volume plus five
+  measures of the disease's *pattern* (where it sits, how scattered, how
+  confluent)
+
+| Method | Agreement (QWK) | Exactly right | Mean error (classes) |
+|---|---|---|---|
+| Always guess the commonest class *(floor)* | 0.000 | 42% | 1.32 |
+| **Clinical cut-offs on our volume ← selected** | **0.931** | **78%** | **0.22** |
+| Best learned model (ordinal regression, volume only) | 0.940 | 80% | 0.20 |
+| Same, plus the five pattern measures | 0.938 | 80% | 0.20 |
+
+- **The cut-offs won.** The best learned model's +0.009 is about half of its own
+  uncertainty, and it gets there by trading away the mild class (88% → 42%
+  recall). Every learned model was tested head to head; none passed
+  - *Regression, then cut-offs* matched the rule exactly (0.931)
+  - *Multinomial regression* and the *random forest* did worse
+  - *The pattern measures added nothing measurable* — the only one any model
+    leaned on was the small-lesion fraction, which looks like a scanner signal
+    rather than a clinical one
+- **How the selected method graded the 60:**
+
+| | normal | mild | moderate | severe |
+|---|---|---|---|---|
+| **True class** | 18 | 8 | 9 | 25 |
+| **Given class** | 13 | 14 | 7 | 26 |
+
+- **Every mistake is exactly one class off**, and the direction is set by the
+  hospital: our segmentation over-measures at Amsterdam and Utrecht (all 9
+  errors there grade *up*) and under-measures at Singapore (all 4 grade *down*)
+- **Most mistakes are unavoidable:** 14 patients sit within one typical
+  measurement error of a cut-off — 57% are graded right, against 85% of the rest
+
+![Three typical patients, graded](outputs/week5-classification/06-three-patients/graded.png)
+
 ---
 
 ## Current status and next step
 
-**Weeks 1–4 are complete.** The pipeline runs end to end: raw scan in,
-segmented and labelled lesions with quantitative features out. 92 automated
-tests pass. The 110 official test subjects remain sealed.
+**Weeks 1–6 are complete.** The pipeline runs end to end: raw scan in,
+segmented and labelled lesions with quantitative features and a severity grade
+out. 163 automated tests pass. The 110 official test subjects remain sealed.
 
-**Next: Weeks 5–6 — Classification.**
-This is the ML / DL / statistical stage: categorise each
-subject as **mild, moderate or severe** WMH burden, using the lesion measurements produced in Week 4 _(bonus)_.
+**Next: Week 7 — Performance evaluation.** The 110 sealed subjects are opened
+for the first time: segmentation scored against the official leaderboard, and
+the frozen severity grader applied once — including on the two scanners no
+model has ever seen.
 
-Weeks 7–9 then follow: performance evaluation against the official leaderboard,
-consolidation of the work into one final document, and the final presentation.
+Weeks 8–9 then follow: consolidation of the work into one final document, and
+the final presentation.
 
 ---
 
@@ -256,7 +315,8 @@ consolidation of the work into one final document, and the final presentation.
 
 ```
 ├── code/            all source — metadata, checks, preprocessing,
-│                    segmentation, features  (see code/README.md)
+│                    segmentation, features, classification
+│                    (see code/README.md)
 ├── outputs/         every result as a figure, named in plain words
 ├── deliverables/    notebooks and submitted documents
 └── data/            the dataset (not in version control, ~8.7 GB)

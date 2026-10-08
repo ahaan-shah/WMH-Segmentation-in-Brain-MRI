@@ -1,0 +1,810 @@
+{
+  "4class/threshold_rule": {
+    "confusion_pooled_over_repeats": [
+      [
+        130,
+        50,
+        0,
+        0
+      ],
+      [
+        0,
+        70,
+        10,
+        0
+      ],
+      [
+        0,
+        20,
+        40,
+        30
+      ],
+      [
+        0,
+        0,
+        20,
+        230
+      ]
+    ],
+    "classes": [
+      "normal",
+      "mild",
+      "moderate",
+      "severe"
+    ],
+    "per_class": {
+      "normal": {
+        "precision": 1.0,
+        "recall": 0.7222222222222222,
+        "f1": 0.8387096774193548,
+        "support": 180.0
+      },
+      "mild": {
+        "precision": 0.5,
+        "recall": 0.875,
+        "f1": 0.6363636363636364,
+        "support": 80.0
+      },
+      "moderate": {
+        "precision": 0.5714285714285714,
+        "recall": 0.4444444444444444,
+        "f1": 0.5,
+        "support": 90.0
+      },
+      "severe": {
+        "precision": 0.8846153846153846,
+        "recall": 0.92,
+        "f1": 0.9019607843137256,
+        "support": 250.0
+      }
+    },
+    "pooled_scores": {
+      "qwk": 0.9309000708717222,
+      "mean_absolute_class_error": 0.21666666666666667,
+      "balanced_accuracy": 0.7404166666666667,
+      "accuracy": 0.7833333333333333,
+      "mean_signed_class_error": 0.08333333333333333
+    },
+    "per_site": {
+      "Amsterdam": {
+        "qwk": 0.9116607773851589,
+        "mean_absolute_class_error": 0.25,
+        "accuracy": 0.75,
+        "mean_signed_class_error": 0.25
+      },
+      "Singapore": {
+        "qwk": 0.9263351749539593,
+        "mean_absolute_class_error": 0.2,
+        "accuracy": 0.8,
+        "mean_signed_class_error": -0.2
+      },
+      "Utrecht": {
+        "qwk": 0.9396681749622926,
+        "mean_absolute_class_error": 0.2,
+        "accuracy": 0.8,
+        "mean_signed_class_error": 0.2
+      }
+    },
+    "boundary": {
+      "n_patients": 14,
+      "accuracy": 0.5714285714285714,
+      "non_boundary_accuracy": 0.8478260869565217
+    },
+    "per_patient_error_rate": {
+      "training_Amsterdam_GE3T_126": 1.0,
+      "training_Amsterdam_GE3T_116": 1.0,
+      "training_Amsterdam_GE3T_115": 1.0,
+      "training_Amsterdam_GE3T_114": 1.0,
+      "training_Amsterdam_GE3T_137": 1.0,
+      "training_Utrecht_Utrecht_35": 1.0,
+      "training_Utrecht_Utrecht_19": 1.0,
+      "training_Utrecht_Utrecht_11": 1.0,
+      "training_Singapore_Singapore_66": 1.0,
+      "training_Singapore_Singapore_69": 1.0,
+      "training_Singapore_Singapore_61": 1.0,
+      "training_Singapore_Singapore_59": 1.0,
+      "training_Utrecht_Utrecht_23": 1.0,
+      "training_Amsterdam_GE3T_110": 0.0,
+      "training_Amsterdam_GE3T_109": 0.0
+    }
+  },
+  "4class/volume_only/ordinal_logistic": {
+    "confusion_pooled_over_repeats": [
+      [
+        172,
+        8,
+        0,
+        0
+      ],
+      [
+        29,
+        34,
+        17,
+        0
+      ],
+      [
+        0,
+        10,
+        50,
+        30
+      ],
+      [
+        0,
+        0,
+        28,
+        222
+      ]
+    ],
+    "classes": [
+      "normal",
+      "mild",
+      "moderate",
+      "severe"
+    ],
+    "per_class": {
+      "normal": {
+        "precision": 0.8557213930348259,
+        "recall": 0.9555555555555556,
+        "f1": 0.9028871391076116,
+        "support": 180.0
+      },
+      "mild": {
+        "precision": 0.6538461538461539,
+        "recall": 0.425,
+        "f1": 0.5151515151515152,
+        "support": 80.0
+      },
+      "moderate": {
+        "precision": 0.5263157894736842,
+        "recall": 0.5555555555555556,
+        "f1": 0.5405405405405405,
+        "support": 90.0
+      },
+      "severe": {
+        "precision": 0.8809523809523809,
+        "recall": 0.888,
+        "f1": 0.8844621513944223,
+        "support": 250.0
+      }
+    },
+    "pooled_scores": {
+      "qwk": 0.9399034514465863,
+      "mean_absolute_class_error": 0.20333333333333334,
+      "balanced_accuracy": 0.7060277777777778,
+      "accuracy": 0.7966666666666666,
+      "mean_signed_class_error": -0.02
+    },
+    "per_site": {
+      "Amsterdam": {
+        "qwk": 0.9082264362747432,
+        "mean_absolute_class_error": 0.275,
+        "accuracy": 0.725,
+        "mean_signed_class_error": 0.175
+      },
+      "Singapore": {
+        "qwk": 0.9149653296624904,
+        "mean_absolute_class_error": 0.23500000000000001,
+        "accuracy": 0.7649999999999999,
+        "mean_signed_class_error": -0.23500000000000001
+      },
+      "Utrecht": {
+        "qwk": 0.974059662775616,
+        "mean_absolute_class_error": 0.1,
+        "accuracy": 0.9,
+        "mean_signed_class_error": 0.0
+      }
+    },
+    "boundary": {
+      "n_patients": 14,
+      "accuracy": 0.5142857142857142,
+      "non_boundary_accuracy": 0.8826086956521739
+    },
+    "per_patient_error_rate": {
+      "training_Amsterdam_GE3T_102": 1.0,
+      "training_Amsterdam_GE3T_137": 1.0,
+      "training_Amsterdam_GE3T_126": 1.0,
+      "training_Amsterdam_GE3T_114": 1.0,
+      "training_Singapore_Singapore_66": 1.0,
+      "training_Singapore_Singapore_69": 1.0,
+      "training_Utrecht_Utrecht_17": 1.0,
+      "training_Utrecht_Utrecht_19": 1.0,
+      "training_Singapore_Singapore_59": 1.0,
+      "training_Singapore_Singapore_52": 0.9,
+      "training_Amsterdam_GE3T_115": 0.8,
+      "training_Amsterdam_GE3T_107": 0.7,
+      "training_Singapore_Singapore_60": 0.6,
+      "training_Singapore_Singapore_67": 0.2,
+      "training_Amsterdam_GE3T_112": 0.0
+    }
+  },
+  "4class/volume_only/regression_then_threshold": {
+    "confusion_pooled_over_repeats": [
+      [
+        145,
+        35,
+        0,
+        0
+      ],
+      [
+        10,
+        61,
+        9,
+        0
+      ],
+      [
+        0,
+        20,
+        40,
+        30
+      ],
+      [
+        0,
+        0,
+        29,
+        221
+      ]
+    ],
+    "classes": [
+      "normal",
+      "mild",
+      "moderate",
+      "severe"
+    ],
+    "per_class": {
+      "normal": {
+        "precision": 0.9354838709677419,
+        "recall": 0.8055555555555556,
+        "f1": 0.8656716417910448,
+        "support": 180.0
+      },
+      "mild": {
+        "precision": 0.5258620689655172,
+        "recall": 0.7625,
+        "f1": 0.6224489795918368,
+        "support": 80.0
+      },
+      "moderate": {
+        "precision": 0.5128205128205128,
+        "recall": 0.4444444444444444,
+        "f1": 0.47619047619047616,
+        "support": 90.0
+      },
+      "severe": {
+        "precision": 0.8804780876494024,
+        "recall": 0.884,
+        "f1": 0.8822355289421158,
+        "support": 250.0
+      }
+    },
+    "pooled_scores": {
+      "qwk": 0.9309509388249546,
+      "mean_absolute_class_error": 0.22166666666666668,
+      "balanced_accuracy": 0.724125,
+      "accuracy": 0.7783333333333333,
+      "mean_signed_class_error": 0.025
+    },
+    "per_site": {
+      "Amsterdam": {
+        "qwk": 0.9152321312943075,
+        "mean_absolute_class_error": 0.25,
+        "accuracy": 0.75,
+        "mean_signed_class_error": 0.15
+      },
+      "Singapore": {
+        "qwk": 0.9083638545740476,
+        "mean_absolute_class_error": 0.24500000000000002,
+        "accuracy": 0.755,
+        "mean_signed_class_error": -0.24500000000000002
+      },
+      "Utrecht": {
+        "qwk": 0.949780313463178,
+        "mean_absolute_class_error": 0.16999999999999998,
+        "accuracy": 0.8300000000000001,
+        "mean_signed_class_error": 0.16999999999999998
+      }
+    },
+    "boundary": {
+      "n_patients": 14,
+      "accuracy": 0.5785714285714286,
+      "non_boundary_accuracy": 0.8391304347826087
+    },
+    "per_patient_error_rate": {
+      "training_Amsterdam_GE3T_102": 1.0,
+      "training_Amsterdam_GE3T_126": 1.0,
+      "training_Amsterdam_GE3T_115": 1.0,
+      "training_Amsterdam_GE3T_114": 1.0,
+      "training_Singapore_Singapore_66": 1.0,
+      "training_Utrecht_Utrecht_35": 1.0,
+      "training_Utrecht_Utrecht_19": 1.0,
+      "training_Utrecht_Utrecht_11": 1.0,
+      "training_Singapore_Singapore_61": 1.0,
+      "training_Singapore_Singapore_69": 1.0,
+      "training_Singapore_Singapore_59": 1.0,
+      "training_Amsterdam_GE3T_137": 0.9,
+      "training_Singapore_Singapore_60": 0.8,
+      "training_Utrecht_Utrecht_23": 0.4,
+      "training_Singapore_Singapore_67": 0.1
+    }
+  },
+  "4class/full_features/ordinal_logistic": {
+    "confusion_pooled_over_repeats": [
+      [
+        153,
+        26,
+        1,
+        0
+      ],
+      [
+        22,
+        48,
+        10,
+        0
+      ],
+      [
+        0,
+        7,
+        46,
+        37
+      ],
+      [
+        0,
+        0,
+        18,
+        232
+      ]
+    ],
+    "classes": [
+      "normal",
+      "mild",
+      "moderate",
+      "severe"
+    ],
+    "per_class": {
+      "normal": {
+        "precision": 0.8742857142857143,
+        "recall": 0.85,
+        "f1": 0.8619718309859156,
+        "support": 180.0
+      },
+      "mild": {
+        "precision": 0.5925925925925926,
+        "recall": 0.6,
+        "f1": 0.5962732919254657,
+        "support": 80.0
+      },
+      "moderate": {
+        "precision": 0.6133333333333333,
+        "recall": 0.5111111111111111,
+        "f1": 0.5575757575757575,
+        "support": 90.0
+      },
+      "severe": {
+        "precision": 0.862453531598513,
+        "recall": 0.928,
+        "f1": 0.8940269749518305,
+        "support": 250.0
+      }
+    },
+    "pooled_scores": {
+      "qwk": 0.9379192950836087,
+      "mean_absolute_class_error": 0.20333333333333334,
+      "balanced_accuracy": 0.7222777777777778,
+      "accuracy": 0.7983333333333333,
+      "mean_signed_class_error": 0.04666666666666667
+    },
+    "per_site": {
+      "Amsterdam": {
+        "qwk": 0.9261735059012303,
+        "mean_absolute_class_error": 0.22000000000000003,
+        "accuracy": 0.78,
+        "mean_signed_class_error": 0.11000000000000001
+      },
+      "Singapore": {
+        "qwk": 0.92194107010233,
+        "mean_absolute_class_error": 0.22000000000000003,
+        "accuracy": 0.78,
+        "mean_signed_class_error": -0.12
+      },
+      "Utrecht": {
+        "qwk": 0.9477014057442054,
+        "mean_absolute_class_error": 0.16999999999999998,
+        "accuracy": 0.8350000000000002,
+        "mean_signed_class_error": 0.15000000000000002
+      }
+    },
+    "boundary": {
+      "n_patients": 14,
+      "accuracy": 0.6071428571428571,
+      "non_boundary_accuracy": 0.8565217391304348
+    },
+    "per_patient_error_rate": {
+      "training_Amsterdam_GE3T_102": 1.0,
+      "training_Amsterdam_GE3T_126": 1.0,
+      "training_Singapore_Singapore_69": 1.0,
+      "training_Utrecht_Utrecht_19": 1.0,
+      "training_Utrecht_Utrecht_35": 1.0,
+      "training_Singapore_Singapore_52": 0.9,
+      "training_Amsterdam_GE3T_137": 0.9,
+      "training_Singapore_Singapore_56": 0.9,
+      "training_Singapore_Singapore_59": 0.8,
+      "training_Amsterdam_GE3T_114": 0.8,
+      "training_Utrecht_Utrecht_27": 0.8,
+      "training_Amsterdam_GE3T_116": 0.5,
+      "training_Singapore_Singapore_61": 0.4,
+      "training_Singapore_Singapore_66": 0.3,
+      "training_Utrecht_Utrecht_23": 0.3
+    }
+  },
+  "3class/threshold_rule": {
+    "confusion_pooled_over_repeats": [
+      [
+        250,
+        10,
+        0
+      ],
+      [
+        20,
+        40,
+        30
+      ],
+      [
+        0,
+        20,
+        230
+      ]
+    ],
+    "classes": [
+      "normal_or_mild",
+      "moderate",
+      "severe"
+    ],
+    "per_class": {
+      "normal_or_mild": {
+        "precision": 0.9259259259259259,
+        "recall": 0.9615384615384616,
+        "f1": 0.9433962264150944,
+        "support": 260.0
+      },
+      "moderate": {
+        "precision": 0.5714285714285714,
+        "recall": 0.4444444444444444,
+        "f1": 0.5,
+        "support": 90.0
+      },
+      "severe": {
+        "precision": 0.8846153846153846,
+        "recall": 0.92,
+        "f1": 0.9019607843137256,
+        "support": 250.0
+      }
+    },
+    "pooled_scores": {
+      "qwk": 0.9230522603398525,
+      "mean_absolute_class_error": 0.13333333333333333,
+      "balanced_accuracy": 0.7753276353276353,
+      "accuracy": 0.8666666666666667,
+      "mean_signed_class_error": 0.0
+    },
+    "per_site": {
+      "Amsterdam": {
+        "qwk": 0.8986486486486488,
+        "mean_absolute_class_error": 0.14999999999999997,
+        "accuracy": 0.85,
+        "mean_signed_class_error": 0.14999999999999997
+      },
+      "Singapore": {
+        "qwk": 0.864406779661017,
+        "mean_absolute_class_error": 0.2,
+        "accuracy": 0.8,
+        "mean_signed_class_error": -0.2
+      },
+      "Utrecht": {
+        "qwk": 0.9735449735449734,
+        "mean_absolute_class_error": 0.05,
+        "accuracy": 0.9499999999999998,
+        "mean_signed_class_error": 0.05
+      }
+    },
+    "boundary": {
+      "n_patients": 9,
+      "accuracy": 0.4444444444444444,
+      "non_boundary_accuracy": 0.9411764705882353
+    },
+    "per_patient_error_rate": {
+      "training_Amsterdam_GE3T_126": 1.0,
+      "training_Amsterdam_GE3T_137": 1.0,
+      "training_Amsterdam_GE3T_114": 1.0,
+      "training_Singapore_Singapore_59": 1.0,
+      "training_Singapore_Singapore_66": 1.0,
+      "training_Singapore_Singapore_69": 1.0,
+      "training_Singapore_Singapore_61": 1.0,
+      "training_Utrecht_Utrecht_19": 1.0,
+      "training_Amsterdam_GE3T_104": 0.0,
+      "training_Amsterdam_GE3T_105": 0.0,
+      "training_Amsterdam_GE3T_106": 0.0,
+      "training_Amsterdam_GE3T_100": 0.0,
+      "training_Amsterdam_GE3T_112": 0.0,
+      "training_Amsterdam_GE3T_110": 0.0,
+      "training_Amsterdam_GE3T_109": 0.0
+    }
+  },
+  "3class/volume_only/ordinal_logistic": {
+    "confusion_pooled_over_repeats": [
+      [
+        243,
+        17,
+        0
+      ],
+      [
+        10,
+        50,
+        30
+      ],
+      [
+        0,
+        25,
+        225
+      ]
+    ],
+    "classes": [
+      "normal_or_mild",
+      "moderate",
+      "severe"
+    ],
+    "per_class": {
+      "normal_or_mild": {
+        "precision": 0.9604743083003953,
+        "recall": 0.9346153846153846,
+        "f1": 0.9473684210526315,
+        "support": 260.0
+      },
+      "moderate": {
+        "precision": 0.5434782608695652,
+        "recall": 0.5555555555555556,
+        "f1": 0.5494505494505495,
+        "support": 90.0
+      },
+      "severe": {
+        "precision": 0.8823529411764706,
+        "recall": 0.9,
+        "f1": 0.8910891089108911,
+        "support": 250.0
+      }
+    },
+    "pooled_scores": {
+      "qwk": 0.9194551764782922,
+      "mean_absolute_class_error": 0.13666666666666666,
+      "balanced_accuracy": 0.7967236467236467,
+      "accuracy": 0.8633333333333333,
+      "mean_signed_class_error": 0.02
+    },
+    "per_site": {
+      "Amsterdam": {
+        "qwk": 0.8746793403573065,
+        "mean_absolute_class_error": 0.185,
+        "accuracy": 0.8150000000000001,
+        "mean_signed_class_error": 0.185
+      },
+      "Singapore": {
+        "qwk": 0.8737012987012986,
+        "mean_absolute_class_error": 0.175,
+        "accuracy": 0.825,
+        "mean_signed_class_error": -0.175
+      },
+      "Utrecht": {
+        "qwk": 0.9735449735449734,
+        "mean_absolute_class_error": 0.05,
+        "accuracy": 0.9499999999999998,
+        "mean_signed_class_error": 0.05
+      }
+    },
+    "boundary": {
+      "n_patients": 9,
+      "accuracy": 0.4444444444444444,
+      "non_boundary_accuracy": 0.9372549019607843
+    },
+    "per_patient_error_rate": {
+      "training_Amsterdam_GE3T_126": 1.0,
+      "training_Amsterdam_GE3T_137": 1.0,
+      "training_Amsterdam_GE3T_114": 1.0,
+      "training_Singapore_Singapore_59": 1.0,
+      "training_Singapore_Singapore_66": 1.0,
+      "training_Singapore_Singapore_69": 1.0,
+      "training_Utrecht_Utrecht_19": 1.0,
+      "training_Amsterdam_GE3T_107": 0.7,
+      "training_Singapore_Singapore_60": 0.4,
+      "training_Singapore_Singapore_67": 0.1,
+      "training_Amsterdam_GE3T_103": 0.0,
+      "training_Amsterdam_GE3T_104": 0.0,
+      "training_Amsterdam_GE3T_112": 0.0,
+      "training_Amsterdam_GE3T_110": 0.0,
+      "training_Amsterdam_GE3T_109": 0.0
+    }
+  },
+  "3class/volume_only/regression_then_threshold": {
+    "confusion_pooled_over_repeats": [
+      [
+        251,
+        9,
+        0
+      ],
+      [
+        20,
+        40,
+        30
+      ],
+      [
+        0,
+        32,
+        218
+      ]
+    ],
+    "classes": [
+      "normal_or_mild",
+      "moderate",
+      "severe"
+    ],
+    "per_class": {
+      "normal_or_mild": {
+        "precision": 0.9261992619926199,
+        "recall": 0.9653846153846154,
+        "f1": 0.9453860640301318,
+        "support": 260.0
+      },
+      "moderate": {
+        "precision": 0.49382716049382713,
+        "recall": 0.4444444444444444,
+        "f1": 0.4678362573099415,
+        "support": 90.0
+      },
+      "severe": {
+        "precision": 0.8790322580645161,
+        "recall": 0.872,
+        "f1": 0.8755020080321285,
+        "support": 250.0
+      }
+    },
+    "pooled_scores": {
+      "qwk": 0.9114986870684345,
+      "mean_absolute_class_error": 0.15166666666666667,
+      "balanced_accuracy": 0.7606096866096865,
+      "accuracy": 0.8483333333333334,
+      "mean_signed_class_error": -0.021666666666666667
+    },
+    "per_site": {
+      "Amsterdam": {
+        "qwk": 0.9020497770497771,
+        "mean_absolute_class_error": 0.145,
+        "accuracy": 0.8549999999999999,
+        "mean_signed_class_error": 0.145
+      },
+      "Singapore": {
+        "qwk": 0.8198345073671908,
+        "mean_absolute_class_error": 0.25999999999999995,
+        "accuracy": 0.74,
+        "mean_signed_class_error": -0.25999999999999995
+      },
+      "Utrecht": {
+        "qwk": 0.9735449735449734,
+        "mean_absolute_class_error": 0.05,
+        "accuracy": 0.9499999999999998,
+        "mean_signed_class_error": 0.05
+      }
+    },
+    "boundary": {
+      "n_patients": 9,
+      "accuracy": 0.45555555555555555,
+      "non_boundary_accuracy": 0.9176470588235294
+    },
+    "per_patient_error_rate": {
+      "training_Amsterdam_GE3T_126": 1.0,
+      "training_Amsterdam_GE3T_114": 1.0,
+      "training_Singapore_Singapore_61": 1.0,
+      "training_Singapore_Singapore_59": 1.0,
+      "training_Singapore_Singapore_66": 1.0,
+      "training_Singapore_Singapore_69": 1.0,
+      "training_Utrecht_Utrecht_19": 1.0,
+      "training_Amsterdam_GE3T_137": 0.9,
+      "training_Singapore_Singapore_60": 0.8,
+      "training_Singapore_Singapore_67": 0.3,
+      "training_Singapore_Singapore_50": 0.1,
+      "training_Amsterdam_GE3T_104": 0.0,
+      "training_Amsterdam_GE3T_112": 0.0,
+      "training_Amsterdam_GE3T_110": 0.0,
+      "training_Amsterdam_GE3T_109": 0.0
+    }
+  },
+  "3class/full_features/ordinal_logistic": {
+    "confusion_pooled_over_repeats": [
+      [
+        248,
+        12,
+        0
+      ],
+      [
+        13,
+        52,
+        25
+      ],
+      [
+        0,
+        27,
+        223
+      ]
+    ],
+    "classes": [
+      "normal_or_mild",
+      "moderate",
+      "severe"
+    ],
+    "per_class": {
+      "normal_or_mild": {
+        "precision": 0.9501915708812261,
+        "recall": 0.9538461538461539,
+        "f1": 0.9520153550863724,
+        "support": 260.0
+      },
+      "moderate": {
+        "precision": 0.5714285714285714,
+        "recall": 0.5777777777777777,
+        "f1": 0.574585635359116,
+        "support": 90.0
+      },
+      "severe": {
+        "precision": 0.8991935483870968,
+        "recall": 0.892,
+        "f1": 0.895582329317269,
+        "support": 250.0
+      }
+    },
+    "pooled_scores": {
+      "qwk": 0.9244035736492456,
+      "mean_absolute_class_error": 0.12833333333333333,
+      "balanced_accuracy": 0.8078746438746438,
+      "accuracy": 0.8716666666666667,
+      "mean_signed_class_error": -0.005
+    },
+    "per_site": {
+      "Amsterdam": {
+        "qwk": 0.9364665928738857,
+        "mean_absolute_class_error": 0.085,
+        "accuracy": 0.9149999999999998,
+        "mean_signed_class_error": 0.025
+      },
+      "Singapore": {
+        "qwk": 0.8463090196756259,
+        "mean_absolute_class_error": 0.22000000000000003,
+        "accuracy": 0.78,
+        "mean_signed_class_error": -0.12000000000000002
+      },
+      "Utrecht": {
+        "qwk": 0.9560978967575737,
+        "mean_absolute_class_error": 0.08,
+        "accuracy": 0.9199999999999999,
+        "mean_signed_class_error": 0.08
+      }
+    },
+    "boundary": {
+      "n_patients": 9,
+      "accuracy": 0.6444444444444445,
+      "non_boundary_accuracy": 0.9117647058823529
+    },
+    "per_patient_error_rate": {
+      "training_Singapore_Singapore_56": 1.0,
+      "training_Singapore_Singapore_68": 1.0,
+      "training_Singapore_Singapore_69": 1.0,
+      "training_Utrecht_Utrecht_35": 0.9,
+      "training_Amsterdam_GE3T_126": 0.8,
+      "training_Utrecht_Utrecht_19": 0.7,
+      "training_Singapore_Singapore_66": 0.6,
+      "training_Singapore_Singapore_61": 0.5,
+      "training_Amsterdam_GE3T_104": 0.4,
+      "training_Singapore_Singapore_59": 0.2,
+      "training_Amsterdam_GE3T_107": 0.2,
+      "training_Amsterdam_GE3T_105": 0.2,
+      "training_Singapore_Singapore_65": 0.1,
+      "training_Amsterdam_GE3T_137": 0.1,
+      "training_Amsterdam_GE3T_109": 0.0
+    }
+  }
+}

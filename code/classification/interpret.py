@@ -67,9 +67,23 @@ def features_of(candidate_id: str) -> list:
 
 
 def candidates_to_interpret(selection: dict) -> list:
+    """Selected, threshold rule, and each tier's best and put-forward candidate.
+
+    A tier's best is taken from the experiment summaries, not only from the
+    selection steps: when selection stops early, later tiers never appear in
+    `steps`, yet "does the PATTERN matter, and is it the hospital?" can only be
+    read from a tier-3 model. Found 2026-10-08 when selection stopped at tier 2
+    and no pattern-feature model was interpreted.
+    """
     ids = [selection["selected"], "threshold_rule"]
     for step in selection["steps"]:
         ids += [step["best"], step["put_forward"]]
+    for experiment in ("volume_only", "full_features"):
+        path = EXPERIMENTS_DIR / f"summary_{experiment}.csv"
+        if path.exists():
+            summary = pd.read_csv(path)
+            learned = summary[(summary.scheme == "4class") & summary.candidate.isin(LEARNED)]
+            ids.append(f"{experiment}/{learned.sort_values('qwk_mean').candidate.iloc[-1]}")
     return list(dict.fromkeys(ids))   # de-duplicated, order kept
 
 
@@ -205,6 +219,36 @@ def main() -> None:
         write_manifest(path, generating_script=GENERATING,
                        extra={"permutation_repeats": SETTINGS["permutation_repeats"],
                               "seed": SEED})
+
+    # --- sensitivity of the CHOICE: every learned candidate vs the threshold rule
+    # The rule puts forward the most interpretable of a tier's tied candidates,
+    # not its top scorer. This asks whether that tie-break decided the outcome:
+    # each candidate is put through both promotion conditions directly against
+    # the threshold rule. Reported only; selection.json is unchanged by it.
+    from classification.select import load_tier_predictions, promotion
+    conditions = SEVERITY_CONFIG["selection"]["promotion_conditions"]
+    threshold, tiers = load_tier_predictions(scheme="4class")
+    rows = []
+    for tier, members in tiers.items():
+        for cid, p in members.items():
+            r = promotion(p, threshold, len(SCHEMES["4class"][1]),
+                          conditions["bootstrap_resamples"], SEED,
+                          float(conditions["per_site_tie_tolerance"]))
+            rows.append({"candidate": cid, "tier": tier,
+                         "qwk_difference": r["qwk_difference"],
+                         "bootstrap_se": r["bootstrap_se"],
+                         "gain_in_se": r["qwk_difference"] / r["bootstrap_se"],
+                         "overall_condition": r["overall_condition"],
+                         "sites_won_or_tied": sum(r["wins_or_ties"].values()),
+                         "would_be_promoted": r["promoted"]})
+    head_to_head = pd.DataFrame(rows).sort_values("qwk_difference", ascending=False)
+    path = INTERPRETATION_DIR / "every_candidate_vs_threshold.csv"
+    head_to_head.to_csv(path, index=False)
+    write_manifest(path, generating_script=GENERATING,
+                   extra={"note": "sensitivity of the selection to its within-tier "
+                                  "tie-break; does not change selection.json"})
+    logger.info("every candidate head-to-head with the threshold rule:\n%s",
+                head_to_head.round(4).to_string(index=False))
 
     # --- D4: the 3-class sensitivity table -----------------------------------
     summaries = []

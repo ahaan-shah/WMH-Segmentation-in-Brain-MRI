@@ -1,7 +1,7 @@
 {
   "generating_script": "code/classification/make_outputs.py",
-  "git_commit": "8958b1bb9e0eaebc4bc31ac4202ab12105f6492c-dirty",
-  "timestamp_utc": "2026-10-08T13:26:06.144168+00:00",
+  "git_commit": "dbaa59f63479d8df0517d5f7b50e92720edbecd4-dirty",
+  "timestamp_utc": "2026-10-08T13:45:20.329660+00:00",
   "config": {
     "seed": 42,
     "labels": {
@@ -448,6 +448,6 @@
     }
   },
   "extra": {
-    "commit": "8958b1bb9e0eaebc4bc31ac4202ab12105f6492c-dirty"
+    "commit": "dbaa59f63479d8df0517d5f7b50e92720edbecd4-dirty"
   }
 }

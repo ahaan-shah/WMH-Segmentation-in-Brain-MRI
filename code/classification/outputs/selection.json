@@ -1,0 +1,56 @@
+{
+  "selected": "threshold_rule",
+  "selected_mean_qwk": 0.9309000708717223,
+  "steps": [
+    {
+      "tier": 2,
+      "scores": {
+        "volume_only/multinomial_logistic": 0.9350139584155842,
+        "volume_only/ordinal_logistic": 0.9398803854952327,
+        "volume_only/random_forest": 0.9083192386212229,
+        "volume_only/regression_then_threshold": 0.9309375449944991
+      },
+      "best": "volume_only/ordinal_logistic",
+      "tied_with_best": {
+        "volume_only/ordinal_logistic": {
+          "difference": 0.0,
+          "se": 0.0
+        },
+        "volume_only/multinomial_logistic": {
+          "difference": 0.004866427079648461,
+          "se": 0.006809848814398315,
+          "nan_resamples": 0
+        },
+        "volume_only/regression_then_threshold": {
+          "difference": 0.008942840500733573,
+          "se": 0.012427726120838312,
+          "nan_resamples": 0
+        }
+      },
+      "put_forward": "volume_only/regression_then_threshold",
+      "challenger": "volume_only/regression_then_threshold",
+      "incumbent": "threshold_rule",
+      "qwk_difference": 3.7474122776770535e-05,
+      "bootstrap_se": 0.009531459743436934,
+      "nan_resamples": 0,
+      "overall_condition": false,
+      "site_qwk_challenger": {
+        "Amsterdam": 0.9152321312943075,
+        "Singapore": 0.9083638545740476,
+        "Utrecht": 0.949780313463178
+      },
+      "site_qwk_incumbent": {
+        "Amsterdam": 0.9116607773851589,
+        "Singapore": 0.9263351749539593,
+        "Utrecht": 0.9396681749622926
+      },
+      "wins_or_ties": {
+        "Amsterdam": true,
+        "Singapore": false,
+        "Utrecht": true
+      },
+      "site_condition": true,
+      "promoted": false
+    }
+  ]
+}

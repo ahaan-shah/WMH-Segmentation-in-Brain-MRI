@@ -1,7 +1,7 @@
 {
-  "generating_script": "code/classification/make_outputs.py",
+  "generating_script": "code/classification/freeze.py",
   "git_commit": "dbaa59f63479d8df0517d5f7b50e92720edbecd4-dirty",
-  "timestamp_utc": "2026-10-08T13:45:19.864830+00:00",
+  "timestamp_utc": "2026-10-08T13:43:03.935147+00:00",
   "config": {
     "seed": 42,
     "labels": {
@@ -448,6 +448,100 @@
     }
   },
   "extra": {
-    "commit": "dbaa59f63479d8df0517d5f7b50e92720edbecd4-dirty"
+    "candidate_id": "threshold_rule",
+    "features": [
+      "log_total_volume"
+    ],
+    "scheme": "4class",
+    "cutoffs_ml": [
+      3.4,
+      9.6,
+      17.1
+    ],
+    "classes": [
+      "normal",
+      "mild",
+      "moderate",
+      "severe"
+    ],
+    "trained_on": {
+      "n_patients": 60,
+      "subject_keys": [
+        "training_Amsterdam_GE3T_100",
+        "training_Amsterdam_GE3T_101",
+        "training_Amsterdam_GE3T_102",
+        "training_Amsterdam_GE3T_103",
+        "training_Amsterdam_GE3T_104",
+        "training_Amsterdam_GE3T_105",
+        "training_Amsterdam_GE3T_106",
+        "training_Amsterdam_GE3T_107",
+        "training_Amsterdam_GE3T_108",
+        "training_Amsterdam_GE3T_109",
+        "training_Amsterdam_GE3T_110",
+        "training_Amsterdam_GE3T_112",
+        "training_Amsterdam_GE3T_113",
+        "training_Amsterdam_GE3T_114",
+        "training_Amsterdam_GE3T_115",
+        "training_Amsterdam_GE3T_116",
+        "training_Amsterdam_GE3T_126",
+        "training_Amsterdam_GE3T_132",
+        "training_Amsterdam_GE3T_137",
+        "training_Amsterdam_GE3T_144",
+        "training_Singapore_Singapore_50",
+        "training_Singapore_Singapore_51",
+        "training_Singapore_Singapore_52",
+        "training_Singapore_Singapore_53",
+        "training_Singapore_Singapore_54",
+        "training_Singapore_Singapore_55",
+        "training_Singapore_Singapore_56",
+        "training_Singapore_Singapore_57",
+        "training_Singapore_Singapore_58",
+        "training_Singapore_Singapore_59",
+        "training_Singapore_Singapore_60",
+        "training_Singapore_Singapore_61",
+        "training_Singapore_Singapore_62",
+        "training_Singapore_Singapore_63",
+        "training_Singapore_Singapore_64",
+        "training_Singapore_Singapore_65",
+        "training_Singapore_Singapore_66",
+        "training_Singapore_Singapore_67",
+        "training_Singapore_Singapore_68",
+        "training_Singapore_Singapore_69",
+        "training_Utrecht_Utrecht_0",
+        "training_Utrecht_Utrecht_11",
+        "training_Utrecht_Utrecht_17",
+        "training_Utrecht_Utrecht_19",
+        "training_Utrecht_Utrecht_2",
+        "training_Utrecht_Utrecht_21",
+        "training_Utrecht_Utrecht_23",
+        "training_Utrecht_Utrecht_25",
+        "training_Utrecht_Utrecht_27",
+        "training_Utrecht_Utrecht_29",
+        "training_Utrecht_Utrecht_31",
+        "training_Utrecht_Utrecht_33",
+        "training_Utrecht_Utrecht_35",
+        "training_Utrecht_Utrecht_37",
+        "training_Utrecht_Utrecht_39",
+        "training_Utrecht_Utrecht_4",
+        "training_Utrecht_Utrecht_41",
+        "training_Utrecht_Utrecht_49",
+        "training_Utrecht_Utrecht_6",
+        "training_Utrecht_Utrecht_8"
+      ],
+      "feature_source": "loso_prediction",
+      "target_source": "reference"
+    },
+    "tuned_value": null,
+    "cv_mean_qwk": 0.9309000708717223,
+    "cv_score_note": "mildly optimistic: the selection rule looked at this score",
+    "versions": {
+      "python": "3.14.7",
+      "numpy": "2.5.2",
+      "pandas": "3.0.5",
+      "scikit-learn": "1.9.0",
+      "statsmodels": "0.15.0",
+      "joblib": "1.5.3"
+    },
+    "training_set_agreement": 0.7833333333333333
   }
 }

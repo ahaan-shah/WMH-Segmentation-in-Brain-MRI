@@ -319,12 +319,24 @@ def figure_patients(panels: list, model_label: str, commit: str = "synthetic"):
     true_class, given_class, reference_ml, predicted_ml, agreement (share of
     repeats giving `given_class`).
     """
-    fig, axes = plt.subplots(1, len(panels), figsize=(4.6 * len(panels), 5.6), squeeze=False)
+    fig, axes = plt.subplots(1, len(panels), figsize=(4.6 * len(panels), 5.2), squeeze=False)
     classes = SEVERITY_CONFIG["classes"]
     for ax, panel in zip(axes[0], panels):
-        ax.imshow(np.rot90(panel["flair"]), cmap="gray")
-        for mask, colour, alpha in ((panel["reference"], TRUTH_C, 0.45),
-                                    (panel["prediction"], PRED_C, 0.45)):
+        # Crop to the head (non-zero FLAIR) plus a small margin: the raw field of
+        # view is mostly black air, which shrank the brain to a thumbnail.
+        # Air is not exactly 0 on these scans, so "head" is anything above 5% of
+        # the slice's 99th-percentile intensity.
+        flair = panel["flair"]
+        rows, cols = np.nonzero(flair > 0.05 * np.percentile(flair, 99))
+        if rows.size:
+            margin = 4
+            crop = (slice(max(rows.min() - margin, 0), rows.max() + margin + 1),
+                    slice(max(cols.min() - margin, 0), cols.max() + margin + 1))
+        else:
+            crop = (slice(None), slice(None))
+        ax.imshow(np.rot90(panel["flair"][crop]), cmap="gray")
+        for mask, colour, alpha in ((panel["reference"][crop], TRUTH_C, 0.45),
+                                    (panel["prediction"][crop], PRED_C, 0.45)):
             rgba = np.zeros((*mask.shape, 4))
             rgba[mask] = [*matplotlib.colors.to_rgb(colour), alpha]
             ax.imshow(np.rot90(rgba))
@@ -347,11 +359,12 @@ def figure_patients(panels: list, model_label: str, commit: str = "synthetic"):
                         Patch(color=PRED_C, alpha=0.6, label="our segmentation "
                               "(network that never saw this hospital)")],
                loc="upper center", ncol=2, frameon=False, fontsize=9,
-               bbox_to_anchor=(0.5, -0.12))
+               bbox_to_anchor=(0.5, 0.02))
     _stamp(fig, "Three typical patients, graded",
-           f"The median-burden patient at each hospital, as in every gallery. 'Given' is "
-           f"{model_label}'s out-of-fold class — decided by a model that never saw this "
-           f"patient. Overlap of green and red shows as brown.", commit)
+           f"The median-burden patient at each hospital, as in every gallery. 'Given' is the "
+           f"class the selected method ({model_label}) assigns from our segmentation's "
+           f"volume, out of fold. Where green and red overlap the lesion shows brown.",
+           commit)
     _reserve(fig, TITLE_SPACE + 0.3)      # two-line caption
     return fig
 
@@ -387,6 +400,37 @@ def _patient_panels(selection, logger):
     logger.info("gallery patients: %s", {p["key"]: (p["true_class"], p["given_class"])
                                          for p in panels})
     return panels
+
+
+def write_readme(selection, commit) -> None:
+    """The gallery guide for this week, generated so it cannot drift from the figures."""
+    selected = selection["selected"].split("/")[-1].replace("_", " ")
+    (GALLERY / "README.md").write_text(f"""# week5-classification/
+
+Weeks 5-6 — sorting each patient into **normal / mild / moderate / severe** WMH
+burden (R10, bonus), using the Fazekas-anchored volume cut-offs of Joo et al.
+(PLOS ONE, 2022): 3.4 / 9.6 / 17.1 mL. Every score is from 10 repeats of 5-fold
+cross-validation on the 60 training patients, with features measured by
+networks that never saw the patient's hospital.
+
+| Folder | What it shows |
+|---|---|
+| `01-exploring-the-data/` | The problem before any model: class sizes, cut-offs, which features carry anything |
+| `02-volume-only/` | Experiment 2 — every model given volume alone, against the plain cut-offs |
+| `03-adding-the-pattern/` | Experiment 3 — does WHERE and HOW the disease sits add to HOW MUCH? |
+| `04-the-choice/` | The selection rule, fixed before any model ran, applied step by step |
+| `05-what-drives-it/` | Which measurements the models actually lean on |
+| `06-three-patients/` | The gallery's three patients: the class given beside the true one |
+
+**The result:** the rule selected the **{selected}** — no learned model beat it
+by more than its own uncertainty.
+
+The same three patients as every other week: Amsterdam 112, Singapore 64,
+Utrecht 49, the median lesion-burden patient at each hospital.
+
+Regenerate with `code/.venv/bin/python -m classification.make_outputs`
+(and `classification.explore` for `01`). Generated from commit `{commit[:8]}`.
+""")
 
 
 def main() -> None:
@@ -436,9 +480,11 @@ def main() -> None:
         logger.info("no learned candidate to read importance from (or interpret not run)")
 
     name = selection["selected"].split("/")[-1]
-    save(figure_patients(_patient_panels(selection, logger), CANDIDATE_LABEL.get(name, name),
+    save(figure_patients(_patient_panels(selection, logger), name.replace("_", " "),
                          commit),
          "06-three-patients/graded.png")
+    write_readme(selection, commit)
+    logger.info("  guide: %s", GALLERY / "README.md")
 
 
 if __name__ == "__main__":

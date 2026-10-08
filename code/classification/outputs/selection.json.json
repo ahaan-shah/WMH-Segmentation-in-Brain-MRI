@@ -1,7 +1,7 @@
 {
-  "generating_script": "code/classification/make_outputs.py",
+  "generating_script": "code/classification/select.py",
   "git_commit": "dbaa59f63479d8df0517d5f7b50e92720edbecd4-dirty",
-  "timestamp_utc": "2026-10-08T13:45:19.864830+00:00",
+  "timestamp_utc": "2026-10-08T13:41:16.441258+00:00",
   "config": {
     "seed": 42,
     "labels": {
@@ -448,6 +448,56 @@
     }
   },
   "extra": {
-    "commit": "dbaa59f63479d8df0517d5f7b50e92720edbecd4-dirty"
+    "rule": {
+      "scheme": "4class",
+      "score": "quadratic_weighted_kappa",
+      "score_unit": "pooled_out_of_fold_per_repeat",
+      "complexity_tiers": {
+        "1": [
+          "threshold_rule"
+        ],
+        "2": [
+          "regression_then_threshold",
+          "ordinal_logistic",
+          "multinomial_logistic",
+          "random_forest"
+        ],
+        "3": [
+          "regression_then_threshold",
+          "ordinal_logistic",
+          "multinomial_logistic",
+          "random_forest"
+        ]
+      },
+      "never_selectable": [
+        "majority_class"
+      ],
+      "procedure": "Start with the threshold rule as the incumbent. Take the best candidate of the next tier. It REPLACES the incumbent only if both promotion conditions hold; then repeat with the tier after. Otherwise the incumbent stands and selection stops \u2014 a tier that cannot beat the simpler option is not allowed to be skipped over by the tier above it.\n",
+      "promotion_conditions": {
+        "overall": "one_standard_error",
+        "bootstrap_resamples": 2000,
+        "per_site": "wins_or_ties_on_at_least_2_of_3_sites",
+        "per_site_tie_tolerance": 0.0
+      },
+      "within_tier_tiebreak": "Inside a tier, any candidate within one bootstrap SE of the tier's best is treated as tied with it, and the most interpretable tied candidate is put forward, in the order regression_then_threshold, ordinal_logistic, multinomial_logistic, random_forest.\n",
+      "reported_for_every_candidate": [
+        "mean_signed_class_error",
+        "per_site_scores",
+        "boundary_patient_errors"
+      ],
+      "interpretation": {
+        "candidates": [
+          "selected",
+          "threshold_rule",
+          "each_tier_best",
+          "each_tier_put_forward"
+        ],
+        "permutation_importance": "held_out_folds",
+        "permutation_repeats": 10,
+        "coefficients_from": "refit_on_all_60"
+      },
+      "final_model": "The selected configuration is refit once on all 60 subjects' leave-one-site-out features and frozen. Its CV score is reported as an estimate that the selection itself has made mildly optimistic; the number that counts is Week 7's, on the 110 sealed subjects.\n"
+    },
+    "seed": 42
   }
 }
